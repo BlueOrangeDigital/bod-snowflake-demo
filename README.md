@@ -38,6 +38,22 @@ SEC EDGAR API  ──┘                   └─► Cortex AI Pipeline  ──�
 
 ---
 
+## Two Approaches: SQL vs Snowpark
+
+This demo provides **two implementations**:
+
+| Approach | Files | Best For | Complexity |
+|----------|-------|----------|------------|
+| **SQL** | `sql/*.sql` | Quick demos, prototyping | ⭐ Simple |
+| **Snowpark Python** | `snowpark/*.py` | Production ML, custom models | ⭐⭐⭐ Advanced |
+
+**For quick demos (5-10 min):** Use the SQL approach  
+**For production/technical audiences:** Use the Snowpark approach
+
+📘 **Full comparison:** See [SNOWPARK-GUIDE.md](SNOWPARK-GUIDE.md)
+
+---
+
 ## Quick Start
 
 ### Prerequisites
@@ -141,6 +157,63 @@ snowsql -c demo -f sql/cortex_pipeline.sql
    - `DASHBOARDS.CORTEX_AI_DASHBOARD` — LLM-processed filings
    - `DASHBOARDS.ML_SUMMARY_STATS` — Model performance metrics
    - `DASHBOARDS.CORTEX_SUMMARY_STATS` — Cortex processing stats
+
+---
+
+## Alternative: Snowpark Python Approach
+
+For **production-grade ML** with custom models and better accuracy:
+
+### Step 1: Install ML Dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+Includes: `snowflake-snowpark-python`, `xgboost`, `scikit-learn`
+
+### Step 2: Run Snowpark ML Pipeline
+
+```bash
+python snowpark/ml_pipeline.py
+```
+
+**What it does:**
+- Connects to Snowflake via Snowpark
+- Feature engineering with Snowpark DataFrame API
+- Trains **XGBoost model** (better accuracy than SQL approach)
+- Hyperparameter tuning with GridSearchCV
+- Stores predictions + creates stored procedure
+
+**Expected output:**
+```
+=== Model Performance ===
+MAE:  $2.34
+RMSE: $3.12
+MAPE: 2.87%  ← Much better than SQL approach (5-7%)
+R²:   0.9412
+```
+
+### Step 3: Run Snowpark Cortex Pipeline
+
+```bash
+python snowpark/cortex_pipeline.py
+```
+
+**What it does:**
+- Processes SEC filings with Cortex AI via Snowpark
+- `AI_COMPLETE()` for summarization
+- `AI_SENTIMENT()` for sentiment analysis
+- Classification with Python logic
+- Creates analytical views + executive briefing
+
+**Benefits over SQL approach:**
+✅ Better ML accuracy (XGBoost vs linear regression)  
+✅ Full Python ML ecosystem (scikit-learn, custom models)  
+✅ Production-ready (model registry, versioning, testing)  
+✅ More flexible feature engineering  
+
+📘 **Full guide:** See [SNOWPARK-GUIDE.md](SNOWPARK-GUIDE.md) for detailed comparison and production deployment.
 
 ---
 
@@ -286,7 +359,9 @@ GRANT USE AI FUNCTIONS ON ACCOUNT TO ROLE ACCOUNTADMIN;
 ```
 snowflake-ai-cortex-demo/
 ├── README.md                    ← You are here
+├── SNOWPARK-GUIDE.md            ← Comprehensive Snowpark guide
 ├── PROJECT-PLAN.md              ← Milestone tracking
+├── QUICK-START.md               ← 10-minute setup
 ├── main.tf                      ← OpenTofu/Terraform infrastructure
 ├── requirements.txt             ← Python dependencies
 ├── ingest/
@@ -294,11 +369,13 @@ snowflake-ai-cortex-demo/
 │   ├── fetch_sec_filings.py    ← SEC EDGAR ETL
 │   └── fetch_zillow_data.py    ← Zillow CSV processing (optional)
 ├── sql/
-│   ├── ml_pipeline.sql          ← ML model training & prediction
-│   └── cortex_pipeline.sql      ← Cortex AI processing
+│   ├── ml_pipeline.sql          ← ML model training (SQL approach)
+│   └── cortex_pipeline.sql      ← Cortex AI processing (SQL approach)
+├── snowpark/
+│   ├── ml_pipeline.py           ← XGBoost ML (Snowpark approach)
+│   └── cortex_pipeline.py       ← Cortex AI (Snowpark approach)
 └── demo/
-    ├── video_script.md          ← Detailed recording script
-    └── snowsight_dashboards.json ← Dashboard definitions
+    └── VIDEO-SCRIPT.md          ← 3-5 minute recording script
 ```
 
 ---
