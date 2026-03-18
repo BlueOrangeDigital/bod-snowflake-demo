@@ -15,14 +15,22 @@ from bs4 import BeautifulSoup
 import time
 
 # SEC EDGAR API configuration
+# API Docs: https://www.sec.gov/edgar/sec-api-documentation
+# No API key required, but User-Agent header is mandatory
 EDGAR_BASE = "https://www.sec.gov"
 EDGAR_SEARCH = f"{EDGAR_BASE}/cgi-bin/browse-edgar"
 EDGAR_ARCHIVES = f"{EDGAR_BASE}/Archives/edgar/data"
 
-# Required headers for SEC API (they block requests without User-Agent)
+# Required headers for SEC API (they block requests without proper User-Agent)
+# Format: "Company Name contact@email.com"
+# TODO: Update with your company info for production use
 HEADERS = {
     "User-Agent": "Blue Orange Digital Demo carson@blueorange.digital"
 }
+
+print("SEC EDGAR API: No API key needed!")
+print(f"Using User-Agent: {HEADERS['User-Agent']}")
+print("For production, update HEADERS in this script with your contact info.\n")
 
 def get_snowflake_connection():
     return snowflake.connector.connect(

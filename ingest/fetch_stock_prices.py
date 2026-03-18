@@ -15,8 +15,15 @@ import snowflake.connector
 from typing import List, Dict
 
 # Alpha Vantage API configuration
-API_KEY = os.getenv("ALPHA_VANTAGE_API_KEY", "demo")  # Get free key from alphavantage.co
+# Get your free API key: https://www.alphavantage.co/support/#api-key
+# Free tier: 25 requests/day, 5 requests/minute
+API_KEY = os.getenv("ALPHA_VANTAGE_API_KEY", "demo")
 BASE_URL = "https://www.alphavantage.co/query"
+
+if API_KEY == "demo":
+    print("⚠️  WARNING: Using demo API key (limited data)")
+    print("   Get your free key: https://www.alphavantage.co/support/#api-key")
+    print("   Then set: export ALPHA_VANTAGE_API_KEY='your-key'\n")
 
 # Snowflake connection
 def get_snowflake_connection():

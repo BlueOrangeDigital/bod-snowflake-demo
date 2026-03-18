@@ -7,11 +7,22 @@
 
 ## Prerequisites
 
+### Required Downloads
+
+1. **Snowflake account** → https://signup.snowflake.com/ (free trial)
+2. **OpenTofu** → https://opentofu.org/docs/intro/install/ (or Terraform)
+3. **Python 3.9+** → https://www.python.org/downloads/
+4. **Alpha Vantage API key** → https://www.alphavantage.co/support/#api-key (free)
+
+### Optional
+- **snowsql CLI** → https://docs.snowflake.com/en/user-guide/snowsql-install-config (recommended)
+
+### Verify Installations
+
 ```bash
-# Verify installations
 tofu version          # or: terraform version
-python --version      # 3.9+
-snowsql --version     # optional but recommended
+python --version      # Should be 3.9+
+snowsql --version     # optional
 ```
 
 ---
@@ -19,14 +30,19 @@ snowsql --version     # optional but recommended
 ## 1. Set Environment Variables (2 min)
 
 ```bash
-export SNOWFLAKE_ACCOUNT="<your-account>"
+# Snowflake connection
+export SNOWFLAKE_ACCOUNT="<your-account>"         # e.g., "abc12345.us-east-1"
 export SNOWFLAKE_USER="<your-username>"
 export SNOWFLAKE_PASSWORD="<your-password>"
 export SNOWFLAKE_ROLE="ACCOUNTADMIN"
 
-# Optional: Alpha Vantage API key (get free from alphavantage.co)
-export ALPHA_VANTAGE_API_KEY="demo"
+# Alpha Vantage API (get free key from link above)
+export ALPHA_VANTAGE_API_KEY="<your-api-key>"     # e.g., "ABCD1234EFGH5678"
+# Or use demo key (limited data):
+# export ALPHA_VANTAGE_API_KEY="demo"
 ```
+
+**Note:** SEC EDGAR doesn't require an API key — our script handles authentication automatically.
 
 ---
 

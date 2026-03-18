@@ -54,14 +54,104 @@ This demo provides **two implementations**:
 
 ---
 
+## Prerequisites & Setup
+
+### 1. Snowflake Account
+
+**Get a free trial:** https://signup.snowflake.com/
+
+- **Trial:** 30 days, $400 credits (more than enough for this demo)
+- **Choose:** Standard edition or higher
+- **Region:** Any (US East or West recommended)
+
+### 2. OpenTofu (Infrastructure as Code)
+
+**Download:** https://opentofu.org/docs/intro/install/
+
+**Installation:**
+
+**macOS (Homebrew):**
+```bash
+brew install opentofu
+```
+
+**Linux:**
+```bash
+# Standalone binary
+curl --proto '=https' --tlsv1.2 -fsSL https://get.opentofu.org/install-opentofu.sh -o install-opentofu.sh
+chmod +x install-opentofu.sh
+./install-opentofu.sh --install-method standalone
+```
+
+**Windows (Chocolatey):**
+```powershell
+choco install opentofu
+```
+
+**Alternative:** Use Terraform instead → https://www.terraform.io/downloads (commands are identical, just replace `tofu` with `terraform`)
+
+### 3. Python 3.9+
+
+**Download:** https://www.python.org/downloads/
+
+**Check version:**
+```bash
+python --version  # Should be 3.9 or higher
+```
+
+### 4. Alpha Vantage API Key (Stock Data)
+
+**Get free API key:** https://www.alphavantage.co/support/#api-key
+
+1. Click "Get Your Free API Key Today"
+2. Fill in basic info (name, email)
+3. **Free tier:** 25 requests/day, 5 requests/minute
+4. Copy your API key (looks like: `ABCD1234EFGH5678`)
+
+**Note:** The demo works with the free tier (fetches 10 stocks). For production or faster ingestion, upgrade to a paid plan.
+
+### 5. SEC EDGAR API (SEC Filings)
+
+**No API key required!** 🎉
+
+- **Public API:** https://www.sec.gov/edgar/sec-api-documentation
+- **Rate limit:** ~10 requests/second
+- **Required:** User-Agent header (already included in our script)
+
+**Important:** SEC requires a proper User-Agent header with contact info. Our script uses:
+```
+User-Agent: Blue Orange Digital Demo carson@blueorange.digital
+```
+
+**For production:** Update the header in `ingest/fetch_sec_filings.py` with your company name and email.
+
+### 6. Zillow Research Data (Real Estate) - OPTIONAL
+
+**Public CSV downloads:** https://www.zillow.com/research/data/
+
+- **No API key needed** — CSV files are publicly available
+- **Data types:** Home values (ZHVI), sales, inventory, rentals
+- **Update frequency:** Monthly
+
+**Note:** This demo currently uses stock prices and SEC filings. Zillow data is optional for future extensions.
+
+---
+
+## Getting Started Checklist
+
+Before running the demo, complete these setup steps:
+
+- [ ] **Snowflake account** — Sign up for free trial: https://signup.snowflake.com/
+- [ ] **OpenTofu installed** — Download: https://opentofu.org/docs/intro/install/
+- [ ] **Python 3.9+** — Download: https://www.python.org/downloads/
+- [ ] **Alpha Vantage API key** — Get free key: https://www.alphavantage.co/support/#api-key
+- [ ] **Clone this repo** — `git clone https://github.com/BlueOrangeDigital/bod-snowflake-demo.git`
+
+**Time estimate:** ~10 minutes for full setup
+
+---
+
 ## Quick Start
-
-### Prerequisites
-
-- **Snowflake account** (Trial or higher)
-- **OpenTofu** or **Terraform** (v1.5+)
-- **Python 3.9+**
-- **Alpha Vantage API key** (free from alphavantage.co)
 
 ### Step 1: Set Environment Variables
 
@@ -380,13 +470,56 @@ snowflake-ai-cortex-demo/
 
 ---
 
+## External APIs Reference
+
+### Alpha Vantage (Stock Data)
+
+| Property | Value |
+|----------|-------|
+| **Signup** | https://www.alphavantage.co/support/#api-key |
+| **Docs** | https://www.alphavantage.co/documentation/ |
+| **API Key** | Required (free tier available) |
+| **Free Tier** | 25 requests/day, 5 requests/minute |
+| **Cost** | Free tier: $0/month<br>Premium: $50-$500/month |
+| **Data** | Stock prices, technical indicators, forex, crypto |
+
+**Our usage:** Fetch 10 stock symbols (AAPL, GOOGL, MSFT, TSLA, NVDA, JPM, GS, BAC, WFC, C) with 100 days history = 10 requests total.
+
+### SEC EDGAR (SEC Filings)
+
+| Property | Value |
+|----------|-------|
+| **API Docs** | https://www.sec.gov/edgar/sec-api-documentation |
+| **API Key** | ❌ Not required |
+| **User-Agent** | ✅ Required (company name + email) |
+| **Rate Limit** | ~10 requests/second |
+| **Cost** | Free (public data) |
+| **Data** | 8-K, S-1, 10-K, 10-Q filings, insider trades |
+
+**Our usage:** Fetch 30 recent 8-K filings (M&A announcements, material events).
+
+**Important:** Update the `User-Agent` header in `ingest/fetch_sec_filings.py` with your company name and email for production use.
+
+### Zillow Research Data (Real Estate) - OPTIONAL
+
+| Property | Value |
+|----------|-------|
+| **Data Portal** | https://www.zillow.com/research/data/ |
+| **API Key** | ❌ Not required (CSV downloads) |
+| **Rate Limit** | None (manual downloads) |
+| **Cost** | Free (public data) |
+| **Data** | Home values (ZHVI), sales, inventory, rentals |
+
+**Our usage:** Optional — not currently implemented in the demo, but easy to add.
+
+---
+
 ## Resources
 
 - **Snowflake Cortex Docs:** https://docs.snowflake.com/en/user-guide/snowflake-cortex
 - **Snowflake ML Docs:** https://docs.snowflake.com/en/user-guide/ml-functions
-- **Alpha Vantage API:** https://www.alphavantage.co/documentation/
-- **SEC EDGAR API:** https://www.sec.gov/edgar/sec-api-documentation
 - **OpenTofu Snowflake Provider:** https://registry.terraform.io/providers/Snowflake-Labs/snowflake
+- **Snowpark Python Guide:** https://docs.snowflake.com/en/developer-guide/snowpark/python/index
 
 ---
 
