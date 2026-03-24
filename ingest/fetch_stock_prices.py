@@ -28,7 +28,7 @@ if API_KEY == "demo":
 # Snowflake connection
 def get_snowflake_connection():
     return snowflake.connector.connect(
-        account=os.getenv("SNOWFLAKE_ACCOUNT"),
+        account=f"{os.getenv('SNOWFLAKE_ORGANIZATION_NAME')}-{os.getenv('SNOWFLAKE_ACCOUNT_NAME')}",
         user=os.getenv("SNOWFLAKE_USER"),
         password=os.getenv("SNOWFLAKE_PASSWORD"),
         warehouse="INGESTION_WH",
@@ -95,9 +95,12 @@ def load_to_snowflake(df: pd.DataFrame, table_name: str = "STOCK_PRICES"):
         print("No data to load")
         return
     
+    df["date"] = df["date"].dt.strftime("%Y-%m-%d")
+    df.columns = df.columns.str.upper()
+
     conn = get_snowflake_connection()
     cursor = conn.cursor()
-    
+
     try:
         # Create temporary staging table
         cursor.execute(f"""

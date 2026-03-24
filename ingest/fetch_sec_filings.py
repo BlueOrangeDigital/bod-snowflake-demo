@@ -34,7 +34,7 @@ print("For production, update HEADERS in this script with your contact info.\n")
 
 def get_snowflake_connection():
     return snowflake.connector.connect(
-        account=os.getenv("SNOWFLAKE_ACCOUNT"),
+        account=f"{os.getenv('SNOWFLAKE_ORGANIZATION_NAME')}-{os.getenv('SNOWFLAKE_ACCOUNT_NAME')}",
         user=os.getenv("SNOWFLAKE_USER"),
         password=os.getenv("SNOWFLAKE_PASSWORD"),
         warehouse="INGESTION_WH",
@@ -112,7 +112,8 @@ def load_to_snowflake(filings: list, table_name: str = "SEC_FILINGS"):
         return
     
     df = pd.DataFrame(filings)
-    
+    df.columns = df.columns.str.upper()
+
     conn = get_snowflake_connection()
     cursor = conn.cursor()
     

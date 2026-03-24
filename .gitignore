@@ -1,0 +1,5 @@
+.env
+.venv/**
+.playwright-mcp/**
+.terraform/**
+.terraform.lock*

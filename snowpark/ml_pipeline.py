@@ -36,7 +36,7 @@ except ImportError:
 def get_snowpark_session():
     """Create Snowpark session from environment variables"""
     connection_parameters = {
-        "account": os.getenv("SNOWFLAKE_ACCOUNT"),
+        "account": f"{os.getenv('SNOWFLAKE_ORGANIZATION_NAME')}-{os.getenv('SNOWFLAKE_ACCOUNT_NAME')}",
         "user": os.getenv("SNOWFLAKE_USER"),
         "password": os.getenv("SNOWFLAKE_PASSWORD"),
         "role": os.getenv("SNOWFLAKE_ROLE", "ACCOUNTADMIN"),

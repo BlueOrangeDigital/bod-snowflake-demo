@@ -9,20 +9,30 @@ terraform {
   required_providers {
     snowflake = {
       source  = "Snowflake-Labs/snowflake"
-      version = "~> 0.87"
+      version = "~> 0.100"
     }
   }
 }
 
 # Provider configuration
 # Authenticate via environment variables:
-# export SNOWFLAKE_ACCOUNT="<your-account>"
+# export SNOWFLAKE_ORGANIZATION_NAME="<your-org-name>"
+# export SNOWFLAKE_ACCOUNT_NAME="<your-account-name>"
 # export SNOWFLAKE_USER="<your-username>"
 # export SNOWFLAKE_PASSWORD="<your-password>"
 # export SNOWFLAKE_ROLE="ACCOUNTADMIN"
 
 provider "snowflake" {
-  role = "ACCOUNTADMIN"
+  organization_name = var.snowflake_organization_name
+  account_name      = var.snowflake_account_name
+}
+
+variable "snowflake_organization_name" {
+  description = "Snowflake organization name"
+}
+
+variable "snowflake_account_name" {
+  description = "Snowflake account name"
 }
 
 # Variables
@@ -32,9 +42,20 @@ variable "database_name" {
 }
 
 variable "warehouse_size" {
-  description = "Warehouse size for compute"
+  description = "Warehouse size for ML compute"
   default     = "MEDIUM"
 }
+
+variable "ingestion_warehouse_size" {
+  description = "Warehouse size for ingestion"
+  default     = "XSMALL"
+}
+
+variable "cortex_warehouse_size" {
+  description = "Warehouse size for Cortex AI"
+  default     = "SMALL"
+}
+
 
 # Database
 resource "snowflake_database" "demo" {
@@ -70,7 +91,7 @@ resource "snowflake_schema" "dashboards" {
 # Warehouses
 resource "snowflake_warehouse" "ingestion_wh" {
   name           = "INGESTION_WH"
-  warehouse_size = "XSMALL"
+  warehouse_size = var.ingestion_warehouse_size
   auto_suspend   = 60
   auto_resume    = true
   comment        = "Warehouse for data ingestion tasks"
@@ -86,41 +107,10 @@ resource "snowflake_warehouse" "ml_wh" {
 
 resource "snowflake_warehouse" "cortex_wh" {
   name           = "CORTEX_WH"
-  warehouse_size = "SMALL"
+  warehouse_size = var.cortex_warehouse_size
   auto_suspend   = 180
   auto_resume    = true
   comment        = "Warehouse for Cortex AI functions"
-}
-
-# Stages for data ingestion
-resource "snowflake_stage" "stock_data_stage" {
-  database = snowflake_database.demo.name
-  schema   = snowflake_schema.raw_data.name
-  name     = "STOCK_DATA_STAGE"
-  
-  url = "s3://your-bucket/stock-data/"  # Replace with actual S3 bucket
-  
-  comment = "Stage for stock price data from Alpha Vantage"
-}
-
-resource "snowflake_stage" "real_estate_stage" {
-  database = snowflake_database.demo.name
-  schema   = snowflake_schema.raw_data.name
-  name     = "REAL_ESTATE_STAGE"
-  
-  url = "s3://your-bucket/real-estate/"  # Replace with actual S3 bucket
-  
-  comment = "Stage for Zillow real estate data"
-}
-
-resource "snowflake_stage" "sec_filings_stage" {
-  database = snowflake_database.demo.name
-  schema   = snowflake_schema.raw_data.name
-  name     = "SEC_FILINGS_STAGE"
-  
-  url = "s3://your-bucket/sec-filings/"  # Replace with actual S3 bucket
-  
-  comment = "Stage for SEC EDGAR filings"
 }
 
 # Tables: RAW_DATA schema
@@ -315,8 +305,13 @@ resource "snowflake_table" "filing_summaries" {
   name     = "FILING_SUMMARIES"
   
   column {
-    name = "FILING_ID"
-    type = "NUMBER AUTOINCREMENT"
+    name     = "FILING_ID"
+    type     = "NUMBER(38,0)"
+    nullable = false
+    identity {
+      start_num = 1
+      step_num  = 1
+    }
   }
   
   column {

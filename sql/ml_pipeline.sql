@@ -72,8 +72,9 @@ ORDER BY SYMBOL, DATE;
 
 -- Create and train a linear regression model
 -- This uses Snowflake's built-in ML capabilities
+-- Train on raw prices only (no exogenous features) so FORECAST can run without future feature data
 CREATE OR REPLACE SNOWFLAKE.ML.FORECAST STOCK_PRICE_MODEL (
-    INPUT_DATA => SYSTEM$REFERENCE('VIEW', 'STOCK_FEATURES'),
+    INPUT_DATA => SYSTEM$QUERY_REFERENCE('SELECT SYMBOL, DATE, CLOSE AS TARGET_PRICE FROM AI_CORTEX_DEMO.RAW_DATA.STOCK_PRICES'),
     SERIES_COLNAME => 'SYMBOL',
     TIMESTAMP_COLNAME => 'DATE',
     TARGET_COLNAME => 'TARGET_PRICE'
@@ -103,8 +104,8 @@ WITH LATEST_DATA AS (
 ),
 FORECAST AS (
     SELECT
-        ts.SYMBOL,
-        ts.FORECAST_DATE AS PREDICTION_DATE,
+        ts.SERIES AS SYMBOL,
+        ts.TS AS PREDICTION_DATE,
         ts.FORECAST AS PREDICTED_CLOSE,
         ts.LOWER_BOUND AS CONFIDENCE_INTERVAL_LOW,
         ts.UPPER_BOUND AS CONFIDENCE_INTERVAL_HIGH
@@ -219,19 +220,7 @@ CREATE OR REPLACE TASK REFRESH_STOCK_PREDICTIONS
     WAREHOUSE = ML_WH
     SCHEDULE = 'USING CRON 0 9 * * * America/New_York'  -- 9 AM ET daily
 AS
-BEGIN
-    -- Retrain model with latest data
-    -- (Simplified - in production, you'd check if retraining is needed)
-    
-    -- Regenerate predictions
-    INSERT INTO AI_CORTEX_DEMO.ML_MODELS.STOCK_PREDICTIONS
-    SELECT * FROM (
-        -- Your prediction query here
-        SELECT
-            'TASK_GENERATED' AS MODEL_VERSION
-        LIMIT 0  -- Placeholder
-    );
-END;
+    SELECT 'Task placeholder - replace with prediction stored procedure call';
 
 -- Note: Task is created but not started. To start:
 -- ALTER TASK REFRESH_STOCK_PREDICTIONS RESUME;
@@ -241,13 +230,13 @@ END;
 -- ============================================================================
 
 -- Check feature data
-SELECT * FROM STOCK_FEATURES WHERE SYMBOL = 'AAPL' ORDER BY DATE DESC LIMIT 10;
+SELECT * FROM AI_CORTEX_DEMO.ML_MODELS.STOCK_FEATURES WHERE SYMBOL = 'AAPL' ORDER BY DATE DESC LIMIT 10;
 
 -- Check predictions
-SELECT * FROM STOCK_PREDICTIONS ORDER BY SYMBOL, PREDICTION_DATE LIMIT 20;
+SELECT * FROM AI_CORTEX_DEMO.ML_MODELS.STOCK_PREDICTIONS ORDER BY SYMBOL, PREDICTION_DATE LIMIT 20;
 
 -- Check performance metrics
-SELECT * FROM MODEL_PERFORMANCE ORDER BY SYMBOL, DATE DESC LIMIT 20;
+SELECT * FROM AI_CORTEX_DEMO.ML_MODELS.MODEL_PERFORMANCE ORDER BY SYMBOL, DATE DESC LIMIT 20;
 
 -- Check dashboard view
 SELECT * FROM AI_CORTEX_DEMO.DASHBOARDS.STOCK_PREDICTION_DASHBOARD WHERE SYMBOL = 'AAPL' ORDER BY DATE DESC LIMIT 30;
