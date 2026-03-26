@@ -3,3 +3,4 @@
 .playwright-mcp/**
 .terraform/**
 .terraform.lock*
+**/node_modules
