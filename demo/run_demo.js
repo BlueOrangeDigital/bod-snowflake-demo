@@ -18,6 +18,8 @@ const readline = require('readline');
 // ---------------------------------------------------------------------------
 const SNOWFLAKE_ORG     = process.env.SNOWFLAKE_ORGANIZATION_NAME;
 const SNOWFLAKE_ACCOUNT = process.env.SNOWFLAKE_ACCOUNT_NAME;
+const SNOWFLAKE_USER    = process.env.SNOWFLAKE_USER;
+const SNOWFLAKE_PASSWORD = process.env.SNOWFLAKE_PASSWORD;
 
 if (!SNOWFLAKE_ORG || !SNOWFLAKE_ACCOUNT) {
   console.error('Error: SNOWFLAKE_ORGANIZATION_NAME and SNOWFLAKE_ACCOUNT_NAME env vars are required.');
@@ -26,7 +28,7 @@ if (!SNOWFLAKE_ORG || !SNOWFLAKE_ACCOUNT) {
 }
 
 const START_URL    = `https://app.snowflake.com/${SNOWFLAKE_ORG}/${SNOWFLAKE_ACCOUNT}/`;
-const HOMEPAGE_URL = `https://app.snowflake.com/${SNOWFLAKE_ORG}/${SNOWFLAKE_ACCOUNT}/#/homepage`;
+const WORKSPACES_URL = `https://app.snowflake.com/${SNOWFLAKE_ORG}/${SNOWFLAKE_ACCOUNT}/#/workspaces`;
 
 // Database / schema from env vars (with sane defaults matching .env-example)
 const DB_RAW        = process.env.DEMO_DATABASE_RAW_DATA          || 'AI_CORTEX_DEMO';
@@ -134,6 +136,48 @@ const DEMO_STEPS = [
   },
 ];
 
+const OAUTH_URL_PATTERN = /https:\/\/.*\.snowflakecomputing\.com\/oauth\/authorize/;
+
+/**
+ * Attach a listener to a page that auto-fills credentials on any
+ * Snowflake OAuth authorize page navigated to by that page.
+ */
+function attachOAuthHandler(page) {
+  const handler = async (frame) => {
+    if (frame !== page.mainFrame()) return;
+    const url = frame.url();
+    if (!OAUTH_URL_PATTERN.test(url)) return;
+    if (!SNOWFLAKE_USER || !SNOWFLAKE_PASSWORD) {
+      console.warn('  ⚠️  OAuth page detected but SNOWFLAKE_USER / SNOWFLAKE_PASSWORD not set — skipping auto-login');
+      page.off('framenavigated', handler);
+      return;
+    }
+    console.log('  🔐 OAuth page detected — filling credentials…');
+    try {
+      // Wait for the username field to appear
+      const userSel = 'input[name="login_name"], input[name="username"], input[type="text"][autocomplete*="user" i], input[id*="user" i], input[placeholder*="user" i]';
+      await page.waitForSelector(userSel, { timeout: 10_000 });
+      await page.fill(userSel, SNOWFLAKE_USER);
+
+      const passSel = 'input[type="password"]';
+      await page.waitForSelector(passSel, { timeout: 5_000 });
+      await page.fill(passSel, SNOWFLAKE_PASSWORD);
+
+      // Click the submit / login button
+      const submitSel = 'button[type="submit"], input[type="submit"], button:has-text("Log In"), button:has-text("Login"), button:has-text("Sign in")';
+      const submitBtn = page.locator(submitSel).first();
+      await submitBtn.waitFor({ state: 'visible', timeout: 5_000 });
+      await submitBtn.click();
+      console.log('  ✓ OAuth credentials submitted');
+    } catch (err) {
+      console.warn(`  ⚠️  OAuth auto-login failed: ${err.message}`);
+    } finally {
+      page.off('framenavigated', handler);
+    }
+  };
+  page.on('framenavigated', handler);
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -152,46 +196,47 @@ function waitForEnter(prompt) {
 }
 
 /**
- * Open a fresh SQL worksheet by navigating to the homepage and clicking
- * the "Create SQL Worksheet" quick-action tile (data-testid confirmed from DOM).
+ * Open a fresh SQL file via the Projects sidebar.
+ * Returns the page object for the new worksheet (may be a new tab).
  */
-async function openNewWorksheet(page) {
-  // Go back to homepage where the "Create SQL Worksheet" tile lives
-  await page.goto(
-    `https://app.snowflake.com/${SNOWFLAKE_ORG}/${SNOWFLAKE_ACCOUNT}/#/homepage`,
-    { waitUntil: 'domcontentloaded', timeout: 30_000 }
-  );
-  await pause(1500);
+async function openNewWorksheet(context, homePage) {
 
-  // Dismiss any "Cortex Code is here" / onboarding popup
-  const closePopup = page.locator('[data-testid="entry-dialog-close-button"]').first();
-  if (await closePopup.isVisible({ timeout: 2000 }).catch(() => false)) {
-    await closePopup.click();
+  // await homePage.goto(START_URL, { waitUntil: 'domcontentloaded' });
+
+  // 2. Click the "Projects" menu button
+  const projects = homePage.locator('[aria-label="Projects"]').first();
+  await projects.waitFor({ state: 'visible', timeout: 20_000 });
+  await projects.click();
+
+  // 2. Click the "Add New" menu button
+  const addNew = homePage.locator('[aria-label="Add New Menu"]');
+  // await addNew.waitFor({ state: 'visible', timeout: 20_000 });
+  await addNew.click();
+
+  // 2. Click the "Notebook" menu button
+  const notebook = homePage.locator('[aria-labelledby="add-new-menu-button"] > div+div+div span');
+  await notebook.waitFor({ state: 'visible', timeout: 20_000 });
+  await notebook.click();
+
+  const newTab = await newPagePromise;
+  const wsPage = newTab ?? homePage;
+  if (newTab) {
+    await newTab.waitForLoadState('domcontentloaded');
+    await newTab.bringToFront();
+  }
+
+  // Poll for the worksheet editor URL (up to 20 s)
+  const deadline = Date.now() + 20_000;
+  while (!wsPage.url().includes('/editor/')) {
+    if (Date.now() > deadline) {
+      console.warn('    ⚠️  URL did not change to worksheet editor');
+      break;
+    }
     await pause(500);
   }
 
-  const tile = page.locator('[data-testid="action-tile-CREATE_SQL_WORKSHEET"]').first();
-  if (await tile.isVisible({ timeout: 5000 }).catch(() => false)) {
-    await tile.click();
-  } else {
-    console.warn('    ⚠️  Could not find "Create SQL Worksheet" tile');
-    return false;
-  }
-
-  // Wait for the URL to change to the worksheet editor
-  await page.waitForFunction(
-    () => window.location.href.includes('/worksheets/'),
-    { timeout: 20_000 }
-  ).catch(() => console.warn('    ⚠️  URL did not change to /worksheets/'));
-
-  // Wait for loading spinner to disappear
-  await page.waitForFunction(
-    () => !document.querySelector('[class*="spinner"], [class*="loading-indicator"]'),
-    { timeout: 15_000 }
-  ).catch(() => {});
-
-  await pause(3000); // extra settle time for React to render the editor
-  return true;
+  await pause(2000);
+  return wsPage;
 }
 
 /**
@@ -230,12 +275,16 @@ let _editorDebugDone = false;
 /**
  * Find the CodeMirror / ACE editor, clear it, type the SQL, and run it.
  */
-async function runQuery(page, step) {
+async function runQuery(context, page, step) {
   const { label, database, schema, sql } = step;
   console.log(`\n  ▶ ${label}`);
 
-  await openNewWorksheet(page);
-  await renameWorksheet(page, label);
+  // const page = await openNewWorksheet(context, homePage);
+  // await renameWorksheet(page, label);
+  await page.getByRole('link', { name: 'Projects' }).click();
+  await page.frameLocator('[title="Workspaces"]').locator("#add-new-menu-button").click();
+  await page.frameLocator('[title="Workspaces"]').getByRole('menuitem', { name: 'Notebook' }).click();
+  await page.keyboard.insertText(label)
 
   // DEBUG: on first query, dump the worksheet editor HTML + screenshot
   if (!_editorDebugDone) {
@@ -249,15 +298,16 @@ async function runQuery(page, step) {
   // ── Locate the SQL editor ────────────────────────────────────────────────
   // Snowsight uses CodeMirror 6: the editable div has class "cm-content"
   const editorSelectors = [
-    '.cm-content',
-    '.cm-editor .cm-scroller',
-    '[role="textbox"][aria-multiline="true"]',
-    '.ace_text-input',
+    // '.cm-content',
+    // '.cm-editor .cm-scroller',
+    // '[role="textbox"][aria-multiline="true"]',
+    // '.ace_text-input',
+    '.cm-activeLine.cm-line'
   ];
 
   let editor = null;
   for (const sel of editorSelectors) {
-    const el = page.locator(sel).first();
+    const el = await page.frameLocator('[title="Workspaces"]').locator(sel).first();
     if (await el.isVisible({ timeout: 4000 }).catch(() => false)) {
       editor = el;
       break;
@@ -332,15 +382,16 @@ async function runQuery(page, step) {
   console.log('='.repeat(60));
   console.log(`\nOpening: ${START_URL}`);
   console.log('\nStep 1/2: Log in to Snowflake in the browser window.');
-  console.log(`          Waiting for: ${HOMEPAGE_URL}\n`);
 
   const browser = await chromium.launch({
     headless: false,
-    args: ['--start-maximized'],
+    // args: ['--start-maximized'],
   });
 
-  const context = await browser.newContext({ viewport: null });
+  // const context = await browser.newContext({ viewport: null });
+  const context = await browser.newContext({ viewport:{ width: 1600, height: 800 }});
   const page = await context.newPage();
+  attachOAuthHandler(page);
   await page.goto(START_URL, { waitUntil: 'domcontentloaded' });
 
   // Poll until the URL contains the org/account path (login complete)
@@ -369,14 +420,13 @@ async function runQuery(page, step) {
   console.log('  🔍 Debug snapshot saved: /tmp/snowsight-homepage.png + .html');
 
   console.log('\nStep 2/2: Running demo queries…\n');
-
   for (const part of DEMO_STEPS) {
     console.log(`\n${'─'.repeat(50)}`);
     console.log(`  ${part.part}`);
     console.log('─'.repeat(50));
 
     for (const step of part.steps) {
-      await runQuery(page, step);
+      await runQuery(context, page, step);
     }
   }
 
