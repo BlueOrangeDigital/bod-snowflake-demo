@@ -195,81 +195,6 @@ function waitForEnter(prompt) {
   });
 }
 
-/**
- * Open a fresh SQL file via the Projects sidebar.
- * Returns the page object for the new worksheet (may be a new tab).
- */
-async function openNewWorksheet(context, homePage) {
-
-  // await homePage.goto(START_URL, { waitUntil: 'domcontentloaded' });
-
-  // 2. Click the "Projects" menu button
-  const projects = homePage.locator('[aria-label="Projects"]').first();
-  await projects.waitFor({ state: 'visible', timeout: 20_000 });
-  await projects.click();
-
-  // 2. Click the "Add New" menu button
-  const addNew = homePage.locator('[aria-label="Add New Menu"]');
-  // await addNew.waitFor({ state: 'visible', timeout: 20_000 });
-  await addNew.click();
-
-  // 2. Click the "Notebook" menu button
-  const notebook = homePage.locator('[aria-labelledby="add-new-menu-button"] > div+div+div span');
-  await notebook.waitFor({ state: 'visible', timeout: 20_000 });
-  await notebook.click();
-
-  const newTab = await newPagePromise;
-  const wsPage = newTab ?? homePage;
-  if (newTab) {
-    await newTab.waitForLoadState('domcontentloaded');
-    await newTab.bringToFront();
-  }
-
-  // Poll for the worksheet editor URL (up to 20 s)
-  const deadline = Date.now() + 20_000;
-  while (!wsPage.url().includes('/editor/')) {
-    if (Date.now() > deadline) {
-      console.warn('    ⚠️  URL did not change to worksheet editor');
-      break;
-    }
-    await pause(500);
-  }
-
-  await pause(2000);
-  return wsPage;
-}
-
-/**
- * Rename the current worksheet by clicking its title and typing the new name.
- */
-async function renameWorksheet(page, name) {
-  const titleSelectors = [
-    '[data-testid="worksheet-title"]',
-    '[data-testid="query-editor-title"]',
-    '.worksheet-title',
-    'h1[contenteditable]',
-    '[aria-label="worksheet name"]',
-    // Snowsight renders the title as a clickable/editable element in the toolbar
-    'input[placeholder*="worksheet" i]',
-    'input[placeholder*="title" i]',
-  ];
-
-  for (const sel of titleSelectors) {
-    const el = page.locator(sel).first();
-    if (await el.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await el.click();
-      await pause(300);
-      await page.keyboard.press('Meta+A');
-      await page.keyboard.type(name);
-      await page.keyboard.press('Enter');
-      await pause(500);
-      return;
-    }
-  }
-  // Fallback: double-click something that looks like a title in the header area
-  console.warn(`    ⚠️  Could not rename worksheet to "${name}"`);
-}
-
 let _editorDebugDone = false;
 
 /**
@@ -279,12 +204,11 @@ async function runQuery(context, page, step) {
   const { label, database, schema, sql } = step;
   console.log(`\n  ▶ ${label}`);
 
-  // const page = await openNewWorksheet(context, homePage);
-  // await renameWorksheet(page, label);
   await page.getByRole('link', { name: 'Projects' }).click();
   await page.frameLocator('[title="Workspaces"]').locator("#add-new-menu-button").click();
-  await page.frameLocator('[title="Workspaces"]').getByRole('menuitem', { name: 'Notebook' }).click();
+  await page.frameLocator('[title="Workspaces"]').getByRole('menuitem', { name: 'SQL file' }).click();
   await page.keyboard.insertText(label)
+  await page.keyboard.press('Enter');
 
   // DEBUG: on first query, dump the worksheet editor HTML + screenshot
   if (!_editorDebugDone) {
@@ -296,21 +220,19 @@ async function runQuery(context, page, step) {
   }
 
   // ── Locate the SQL editor ────────────────────────────────────────────────
-  // Snowsight uses CodeMirror 6: the editable div has class "cm-content"
   const editorSelectors = [
-    // '.cm-content',
-    // '.cm-editor .cm-scroller',
-    // '[role="textbox"][aria-multiline="true"]',
-    // '.ace_text-input',
     '.cm-activeLine.cm-line'
   ];
 
   let editor = null;
   for (const sel of editorSelectors) {
-    const el = await page.frameLocator('[title="Workspaces"]').locator(sel).first();
-    if (await el.isVisible({ timeout: 4000 }).catch(() => false)) {
-      editor = el;
-      break;
+    for (let i = 0; i < 30; i++) {
+      const el = await page.frameLocator('[title="Workspaces"]').locator(sel);
+      if (await el.isVisible({ timeout: 30000 }).catch(() => false)) {
+        editor = el;
+        break;
+      }
+      pause(1000)
     }
   }
 
@@ -334,36 +256,15 @@ async function runQuery(context, page, step) {
   await page.keyboard.type(fullSql, { delay: 15 });
   await pause(500);
 
-  // ── Run the query ────────────────────────────────────────────────────────
-  const runBtnSelectors = [
-    'button[aria-label="Run"]',
-    'button[aria-label="Run query"]',
-    '[data-testid="run-button"]',
-    'button:has-text("Run")',
-  ];
+  const runDropDown = await page.frameLocator('[title="Workspaces"]').locator('button[aria-label="Run options"]').first()
+  await runDropDown.click()
+  await page.frameLocator('[title="Workspaces"]').locator('div[data-action-name="RunAll"]').click()
 
-  let ran = false;
-  for (const sel of runBtnSelectors) {
-    const btn = page.locator(sel).first();
-    if (await btn.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await btn.click();
-      ran = true;
-      break;
-    }
-  }
-
-  if (!ran) {
-    console.log('    ↩  Run button not found — using Cmd+Enter');
-    await page.keyboard.press('Meta+Enter');
-  }
 
   // ── Wait for results ─────────────────────────────────────────────────────
   console.log('    ⏳ Waiting for results…');
   try {
-    await page.waitForSelector(
-      '[data-testid="query-results-table"], .results-table, .sf-results-table, table[aria-label], .slick-viewport',
-      { timeout: 60_000 }
-    );
+    await page.frameLocator('[title="Workspaces"]').getByRole('button', { name: 'Table' }).isVisible({ timeout: 60_000 })
     console.log('    ✓ Results loaded');
   } catch {
     console.warn('    ⚠️  Results selector timed out — results may still be loading');
@@ -428,6 +329,7 @@ async function runQuery(context, page, step) {
     for (const step of part.steps) {
       await runQuery(context, page, step);
     }
+    // break; -- uncomment for just 1 table
   }
 
   console.log('\n' + '='.repeat(60));
