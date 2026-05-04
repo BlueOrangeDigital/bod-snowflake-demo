@@ -13,7 +13,7 @@ import numpy as np
 
 # Snowpark imports
 from snowflake.snowpark import Session
-from snowflake.snowpark.functions import col, lit, avg, stddev, lag, count, when
+from snowflake.snowpark.functions import col, lit, avg, stddev, lag, count, when, dayofweek
 from snowflake.snowpark.window import Window
 from snowflake.snowpark.types import StructType, StructField, StringType, FloatType, DateType
 
@@ -22,6 +22,8 @@ from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 import xgboost as xgb
+
+from snowflake.snowpark.types import IntegerType, VariantType
 
 # Snowpark ML (optional - for model registry)
 try:
@@ -96,12 +98,13 @@ def create_features(session: Session) -> None:
     )
     
     # Day of week (cyclical patterns)
-    df = df.with_column("DAY_OF_WEEK", col("DATE").cast("integer") % 7)
+    df = df.with_column("DAY_OF_WEEK", dayofweek(col("DATE")))
     
     # Target: Next day's close price
     df = df.with_column("TARGET_PRICE", lag(col("CLOSE"), -1).over(window_spec))
     
     # Drop rows with nulls (from window operations)
+    df = df.with_column("DATE", col("DATE").cast(DateType()))
     df = df.dropna()
     
     # Save to Snowflake as view
@@ -266,6 +269,14 @@ def generate_predictions(session: Session, model, scaler) -> None:
     
     # Convert to Snowpark DataFrame and save
     pred_df = session.create_dataframe(predictions)
+    # Cast SYMBOL to Variant right before saving
+    pred_df = pred_df.with_column("SYMBOL", col("SYMBOL").cast(VariantType()))
+    # Get the actual column order from the Snowflake table
+    target_table_columns = session.table("STOCK_PREDICTIONS").columns
+    # Reorder your dataframe to match that specific order
+    pred_df = pred_df.select(target_table_columns)
+    # Run this in your script or a Snowflake worksheet
+    session.sql("ALTER TABLE STOCK_PREDICTIONS ALTER COLUMN MODEL_VERSION SET DATA TYPE VARCHAR(100)").collect()
     
     # Truncate and insert (replace old predictions)
     session.sql("TRUNCATE TABLE STOCK_PREDICTIONS").collect()

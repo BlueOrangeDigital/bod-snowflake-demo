@@ -81,7 +81,7 @@ def process_filings_with_cortex(session: Session) -> None:
     df = df.with_column(
         "AI_SUMMARY",
         call_function("SNOWFLAKE.CORTEX.COMPLETE",
-            lit("llama3.3-70b"),
+            lit("llama3.1-8b"),
             summary_prompt
         )
     )
@@ -119,7 +119,7 @@ def process_filings_with_cortex(session: Session) -> None:
     df = df.with_column(
         "CLASSIFICATION",
         call_function("SNOWFLAKE.CORTEX.COMPLETE",
-            lit("llama3.3-70b"),
+            lit("llama3.1-8b"),
             classification_prompt
         )
     )
@@ -164,11 +164,12 @@ def create_sentiment_trends(session: Session) -> None:
     print("\n=== Creating Sentiment Trends View ===")
     
     df = session.table("FILING_SUMMARIES")
-    
+    df = df.with_column("MONTH", call_function("DATE_TRUNC", lit("month"), col("FILING_DATE")))
+
     # Group by company and month
     df_trends = df.group_by(
         col("COMPANY_NAME"),
-        call_function("DATE_TRUNC", lit("month"), col("FILING_DATE")).alias("MONTH")
+        col("MONTH")
     ).agg([
         count("*").alias("NUM_FILINGS"),
         avg(col("SENTIMENT_SCORE")).alias("AVG_SENTIMENT"),
@@ -231,7 +232,6 @@ def create_ma_activity_view(session: Session) -> None:
         col("AI_SUMMARY"),
         col("SENTIMENT"),
         col("SENTIMENT_SCORE"),
-        col("URL")
     ).sort(col("FILING_DATE").desc())
     
     df_ma.create_or_replace_view("MA_ACTIVITY")
@@ -280,7 +280,7 @@ def generate_executive_briefing(session: Session) -> None:
     # Execute directly with SQL (easier for single completion)
     result = session.sql(f"""
         SELECT SNOWFLAKE.CORTEX.COMPLETE(
-            'claude-3-5-sonnet',
+            'llama3.1-8b',
             '{briefing_prompt.replace("'", "''")}'
         ) AS BRIEFING_TEXT,
         CURRENT_DATE() AS REPORT_DATE
@@ -332,7 +332,6 @@ def create_dashboard_views(session: Session) -> None:
                 WHEN f.SENTIMENT = 'negative' THEN '📉'
                 ELSE '📄'
             END AS ICON,
-            f.URL,
             f.PROCESSED_AT
         FROM AI_CORTEX_DEMO.CORTEX_AI.FILING_SUMMARIES f
         ORDER BY f.FILING_DATE DESC
