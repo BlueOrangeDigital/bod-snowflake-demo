@@ -1,0 +1,13 @@
+{
+  "name": "snowflake-demo-automation",
+  "version": "1.0.0",
+  "description": "Playwright automation for Snowflake AI & Cortex demo",
+  "main": "run_demo.js",
+  "scripts": {
+    "setup": "npm install && npx playwright install chromium",
+    "demo": "node run_demo.js"
+  },
+  "dependencies": {
+    "playwright": "^1.44.0"
+  }
+}

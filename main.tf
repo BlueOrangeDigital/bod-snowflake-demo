@@ -25,6 +25,9 @@ terraform {
 provider "snowflake" {
   organization_name = var.snowflake_organization_name
   account_name      = var.snowflake_account_name
+  user              = var.snowflake_user
+  password          = var.snowflake_password
+  role              = var.snowflake_role
 }
 
 variable "snowflake_organization_name" {
@@ -33,6 +36,20 @@ variable "snowflake_organization_name" {
 
 variable "snowflake_account_name" {
   description = "Snowflake account name"
+}
+
+variable "snowflake_user" {
+  description = "Snowflake username"
+}
+
+variable "snowflake_password" {
+  description = "Snowflake password"
+  sensitive   = true
+}
+
+variable "snowflake_role" {
+  description = "Snowflake role"
+  default     = "ACCOUNTADMIN"
 }
 
 # Variables

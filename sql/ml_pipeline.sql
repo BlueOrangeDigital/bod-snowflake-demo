@@ -2,6 +2,7 @@
 -- Traditional regression model to forecast next-day closing prices
 -- Author: Carson, Blue Orange Digital
 
+USE ROLE ACCOUNTADMIN;
 USE DATABASE AI_CORTEX_DEMO;
 USE SCHEMA ML_MODELS;
 USE WAREHOUSE ML_WH;
