@@ -1,7 +1,7 @@
 # Video Recording Script
 ## Snowflake AI & Cortex Demo
 
-**Duration:** 3-5 minutes  
+**Duration:** 5-6 minutes  
 **Presenter:** Dean Cirielli  
 **Date:** March 2026
 
@@ -49,7 +49,46 @@
 
 ---
 
-## Scene 3: Data Ingestion (0:40 - 1:10)
+## Scene 3: Infrastructure & Ingestion Setup (0:40 - 1:30)
+
+**[Screen: Terminal window]**
+
+**Script:**
+
+> "Let me show you how the whole environment gets spun up. We use **OpenTofu** to provision all the Snowflake infrastructure — databases, schemas, warehouses, and tasks — from code."
+
+**Commands:**
+```bash
+tofu init
+tofu plan
+tofu apply -auto-approve
+```
+
+> "Once the infrastructure is ready, we install the Python dependencies..."
+
+```bash
+pip install -r requirements.txt
+```
+
+> "...and run the two ingestion scripts to pull live data from Alpha Vantage and SEC EDGAR into Snowflake."
+
+```bash
+python ingest/fetch_stock_prices.py
+python ingest/fetch_sec_filings.py
+```
+
+> "Finally, we execute the ML and Cortex AI pipeline SQL files through SnowSQL to build the feature tables, run the models, and generate the Cortex outputs."
+
+```bash
+snowsql -c myaccount -f sql/ml_pipeline.sql
+snowsql -c myaccount -f sql/cortex_pipeline.sql
+```
+
+> "The entire setup — from zero to a running AI pipeline — takes about five minutes. Now let's look at the data."
+
+---
+
+## Scene 4: Data Ingestion Results (1:30 - 2:00)
 
 **[Screen: Snowsight SQL worksheet]**
 
@@ -91,7 +130,7 @@ LIMIT 5;
 
 ---
 
-## Scene 4: Traditional ML Pipeline (1:10 - 2:00)
+## Scene 5: Traditional ML Pipeline (2:00 - 2:50)
 
 **[Screen: Snowsight SQL worksheet]**
 
@@ -148,7 +187,7 @@ ORDER BY MAPE;
 
 ---
 
-## Scene 5: Cortex AI Pipeline (2:00 - 3:30)
+## Scene 6: Cortex AI Pipeline (2:50 - 4:20)
 
 **[Screen: Snowsight SQL worksheet]**
 
@@ -223,7 +262,7 @@ SELECT BRIEFING_TEXT FROM EXECUTIVE_BRIEFING;
 
 ---
 
-## Scene 6: Dashboards (3:30 - 4:00)
+## Scene 7: Dashboards (4:20 - 4:50)
 
 **[Screen: Snowsight Dashboards tab]**
 
@@ -241,7 +280,7 @@ SELECT BRIEFING_TEXT FROM EXECUTIVE_BRIEFING;
 
 ---
 
-## Scene 7: Wrap-Up (4:00 - 4:30)
+## Scene 8: Wrap-Up (4:50 - 5:20)
 
 **[Screen: Back to README or closing slide]**
 

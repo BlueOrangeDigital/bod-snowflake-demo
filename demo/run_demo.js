@@ -136,6 +136,41 @@ const DEMO_STEPS = [
   },
 ];
 
+// Terminal commands for the setup & ingestion scene
+const TERMINAL_SCENE = {
+  part: 'Part 1 — Infrastructure & Ingestion Setup',
+  groups: [
+    {
+      label: 'OpenTofu — provision Snowflake infrastructure',
+      commands: [
+        { cmd: 'tofu init', output: 'Initializing the backend...\nInitializing provider plugins...\n✓  Terraform has been successfully initialized!' },
+        { cmd: 'tofu plan', output: 'Plan: 12 to add, 0 to change, 0 to destroy.' },
+        { cmd: 'tofu apply -auto-approve', output: 'Apply complete! Resources: 12 added, 0 changed, 0 destroyed.' },
+      ],
+    },
+    {
+      label: 'Python — install dependencies',
+      commands: [
+        { cmd: 'pip install -r requirements.txt', output: 'Successfully installed snowflake-connector-python scikit-learn xgboost pandas numpy requests beautifulsoup4' },
+      ],
+    },
+    {
+      label: 'Python — ingest data',
+      commands: [
+        { cmd: 'python ingest/fetch_stock_prices.py', output: 'Fetched 1000 rows for 10 symbols → Snowflake STOCK_PRICES ✓' },
+        { cmd: 'python ingest/fetch_sec_filings.py', output: 'Fetched 25 SEC filings → Snowflake SEC_FILINGS ✓' },
+      ],
+    },
+    {
+      label: 'SnowSQL — run pipelines',
+      commands: [
+        { cmd: 'snowsql -c myaccount -f sql/ml_pipeline.sql', output: 'ML pipeline complete: STOCK_FEATURES, STOCK_PREDICTIONS, MODEL_PERFORMANCE created ✓' },
+        { cmd: 'snowsql -c myaccount -f sql/cortex_pipeline.sql', output: 'Cortex AI pipeline complete: FILING_SUMMARIES, MA_ACTIVITY, EXECUTIVE_BRIEFING created ✓' },
+      ],
+    },
+  ],
+};
+
 const OAUTH_URL_PATTERN = /https:\/\/.*\.snowflakecomputing\.com\/oauth\/authorize/;
 
 /**
@@ -236,6 +271,176 @@ function waitForEnter(prompt) {
       resolve();
     });
   });
+}
+
+/**
+ * Render an animated terminal in the browser and type each command + output.
+ * Captured by the Playwright video recorder.
+ */
+async function runTerminalScene(page, scene) {
+  console.log(`\n${'─'.repeat(50)}`);
+  console.log(`  ${scene.part}`);
+  console.log('─'.repeat(50));
+
+  // Build a full-page terminal HTML shell
+  const terminalHtml = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #1e1e2e;
+    color: #cdd6f4;
+    font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', 'Courier New', monospace;
+    font-size: 15px;
+    line-height: 1.6;
+    padding: 0;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  .titlebar {
+    background: #313244;
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+  .dot { width: 13px; height: 13px; border-radius: 50%; }
+  .dot.red   { background: #f38ba8; }
+  .dot.yellow{ background: #f9e2af; }
+  .dot.green { background: #a6e3a1; }
+  .title { margin-left: 12px; color: #bac2de; font-size: 13px; }
+  .terminal {
+    flex: 1;
+    padding: 20px 28px;
+    overflow-y: auto;
+  }
+  .group-label {
+    color: #89b4fa;
+    font-size: 13px;
+    font-weight: bold;
+    margin: 18px 0 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .prompt { color: #a6e3a1; }
+  .command { color: #cdd6f4; }
+  .output { color: #6c7086; white-space: pre; padding-left: 2px; }
+  .cursor {
+    display: inline-block;
+    width: 9px;
+    height: 16px;
+    background: #cdd6f4;
+    vertical-align: text-bottom;
+    animation: blink 1s step-start infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+</style>
+</head>
+<body>
+  <div class="titlebar">
+    <div class="dot red"></div>
+    <div class="dot yellow"></div>
+    <div class="dot green"></div>
+    <span class="title">zsh — ~/bod-snowflake-demo</span>
+  </div>
+  <div class="terminal" id="term"></div>
+</body>
+</html>`;
+
+  await page.goto(`data:text/html,${encodeURIComponent(terminalHtml)}`, { waitUntil: 'domcontentloaded' });
+  await showBanner(page, scene.part, '');
+  await pause(800);
+
+  for (const group of scene.groups) {
+    console.log(`\n  ▶ ${group.label}`);
+
+    // Write group label
+    await page.evaluate((label) => {
+      const term = document.getElementById('term');
+      const el = document.createElement('div');
+      el.className = 'group-label';
+      el.textContent = `# ${label}`;
+      term.appendChild(el);
+    }, group.label);
+
+    await showBanner(page, scene.part, group.label);
+    await pause(600);
+
+    for (const { cmd, output } of group.commands) {
+      // Type the command character by character
+      const lineEl = await page.evaluateHandle(() => {
+        const term = document.getElementById('term');
+        const line = document.createElement('div');
+        const prompt = document.createElement('span');
+        prompt.className = 'prompt';
+        prompt.textContent = '$ ';
+        const cmdSpan = document.createElement('span');
+        cmdSpan.className = 'command';
+        cmdSpan.id = '__current_cmd__';
+        const cursor = document.createElement('span');
+        cursor.className = 'cursor';
+        cursor.id = '__cursor__';
+        line.appendChild(prompt);
+        line.appendChild(cmdSpan);
+        line.appendChild(cursor);
+        term.appendChild(line);
+        term.scrollTop = term.scrollHeight;
+        return cmdSpan;
+      });
+
+      // Animate typing
+      for (const char of cmd) {
+        await page.evaluate(({ char }) => {
+          const el = document.getElementById('__current_cmd__');
+          if (el) el.textContent += char;
+          const term = document.getElementById('term');
+          if (term) term.scrollTop = term.scrollHeight;
+        }, { char });
+        await pause(28 + Math.random() * 30);
+      }
+
+      // Remove cursor, pause before "running"
+      await page.evaluate(() => {
+        const c = document.getElementById('__cursor__');
+        if (c) c.remove();
+      });
+      await pause(500);
+
+      // Show output
+      await page.evaluate((outputText) => {
+        const term = document.getElementById('term');
+        const out = document.createElement('div');
+        out.className = 'output';
+        out.textContent = outputText;
+        term.appendChild(out);
+        term.scrollTop = term.scrollHeight;
+      }, output);
+
+      await pause(1200);
+    }
+  }
+
+  // Final blinking cursor at prompt
+  await page.evaluate(() => {
+    const term = document.getElementById('term');
+    const line = document.createElement('div');
+    const prompt = document.createElement('span');
+    prompt.className = 'prompt';
+    prompt.textContent = '$ ';
+    const cursor = document.createElement('span');
+    cursor.className = 'cursor';
+    line.appendChild(prompt);
+    line.appendChild(cursor);
+    term.appendChild(line);
+    term.scrollTop = term.scrollHeight;
+  });
+
+  await pause(2500);
+  console.log('  ✓ Terminal scene complete');
 }
 
 let _editorDebugDone = false;
@@ -370,7 +575,14 @@ async function runQuery(context, page, step) {
   require('fs').writeFileSync('/tmp/snowsight-homepage.html', bodyHTML);
   console.log('  🔍 Debug snapshot saved: /tmp/snowsight-homepage.png + .html');
 
-  console.log('\nStep 2/2: Running demo queries…\n');
+  console.log('\nStep 2/3: Running setup & ingestion scene…\n');
+  await runTerminalScene(page, TERMINAL_SCENE);
+
+  // Navigate back to Snowflake after the terminal scene
+  await page.goto(START_URL, { waitUntil: 'domcontentloaded' });
+  await pause(2000);
+
+  console.log('\nStep 3/3: Running demo queries…\n');
   for (const part of DEMO_STEPS) {
     console.log(`\n${'─'.repeat(50)}`);
     console.log(`  ${part.part}`);
