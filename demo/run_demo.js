@@ -185,6 +185,49 @@ function pause(ms) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
+const BANNER_STYLE = `
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 2147483647;
+  background: linear-gradient(90deg, #29B5E8 0%, #1A6FA8 100%);
+  color: #fff;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 12px 24px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.25);
+  pointer-events: none;
+`;
+
+async function showBanner(page, part, label) {
+  const partText  = part  ? `${part}` : '';
+  const labelText = label ? `  ›  ${label}` : '';
+  await page.evaluate(({ partText, labelText, style }) => {
+    let el = document.getElementById('__demo_banner__');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = '__demo_banner__';
+      el.setAttribute('style', style);
+
+      const logo = document.createElement('span');
+      logo.textContent = '❄';
+      logo.style.cssText = 'font-size:22px; flex-shrink:0;';
+      el.appendChild(logo);
+
+      const text = document.createElement('span');
+      text.id = '__demo_banner_text__';
+      el.appendChild(text);
+
+      document.body.prepend(el);
+    }
+    document.getElementById('__demo_banner_text__').textContent = partText + labelText;
+  }, { partText, labelText, style: BANNER_STYLE });
+}
+
 function waitForEnter(prompt) {
   return new Promise((resolve) => {
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
@@ -289,8 +332,14 @@ async function runQuery(context, page, step) {
     // args: ['--start-maximized'],
   });
 
+  const videoDir = `${__dirname}/../recordings`;
+  require('fs').mkdirSync(videoDir, { recursive: true });
+
   // const context = await browser.newContext({ viewport: null });
-  const context = await browser.newContext({ viewport:{ width: 1600, height: 800 }});
+  const context = await browser.newContext({
+    viewport: { width: 1600, height: 800 },
+    recordVideo: { dir: videoDir, size: { width: 1600, height: 800 } },
+  });
   const page = await context.newPage();
   attachOAuthHandler(page);
   await page.goto(START_URL, { waitUntil: 'domcontentloaded' });
@@ -313,6 +362,7 @@ async function runQuery(context, page, step) {
   }
   await pause(2000);
   console.log('  ✓ Logged in!');
+  await showBanner(page, 'Snowflake AI & Cortex Demo', '');
 
   // DEBUG: dump screenshot + body HTML so we can identify real selectors
   await page.screenshot({ path: '/tmp/snowsight-homepage.png', fullPage: false });
@@ -327,6 +377,7 @@ async function runQuery(context, page, step) {
     console.log('─'.repeat(50));
 
     for (const step of part.steps) {
+      await showBanner(page, part.part, step.label);
       await runQuery(context, page, step);
     }
     // break; -- uncomment for just 1 table
@@ -337,5 +388,9 @@ async function runQuery(context, page, step) {
   console.log('='.repeat(60));
 
   await waitForEnter('\n  → Press ENTER to close the browser: ');
+  const videoPath = await page.video()?.path();
   await browser.close();
+  if (videoPath) {
+    console.log(`\n  🎬 Recording saved: ${videoPath}`);
+  }
 })();
