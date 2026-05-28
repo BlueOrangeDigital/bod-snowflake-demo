@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "server",
+  "dolt_database": "bod_snowflake_demo",
+  "project_id": "ff16790e-18fc-4e65-9813-a57a80a91d9d"
+}
