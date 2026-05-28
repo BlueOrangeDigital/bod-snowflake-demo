@@ -1,0 +1,35 @@
+{
+  "version": "1.0",
+  "generated_at": "2026-05-28T00:00:00Z",
+  "project": {
+    "name": "bod-snowflake-demo",
+    "language": "python",
+    "framework": "snowflake-snowpark",
+    "description": "Snowflake AI & Cortex Demo — data ingestion, ML pipelines, and SQL analytics using Snowpark and Snowflake Cortex"
+  },
+  "testing": {
+    "runner": "pytest",
+    "command": "pytest",
+    "coverage_command": "pytest --cov",
+    "coverage_enforcement": false
+  },
+  "external_tools": {
+    "codex": false,
+    "gemini": false,
+    "config_path": ".metaswarm/external-tools.yaml"
+  },
+  "ci": {
+    "provider": "github-actions",
+    "config_path": ".github/workflows/ci.yml"
+  },
+  "infrastructure": {
+    "terraform": true,
+    "cloud": "aws",
+    "config_files": ["main.tf", "s3.tf"]
+  },
+  "source_directories": ["ingest", "snowpark", "sql"],
+  "environment": {
+    "env_file": ".env",
+    "env_example": ".env.example"
+  }
+}

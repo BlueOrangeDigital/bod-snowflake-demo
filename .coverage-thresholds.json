@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$comment": "Coverage thresholds for orchestrator agents and CI. Portable across projects — adjust values per-repo.",
+  "thresholds": {
+    "lines": 100,
+    "branches": 100,
+    "functions": 100,
+    "statements": 100
+  },
+  "enforcement": {
+    "command": "pytest --cov",
+    "blockPRCreation": false,
+    "blockTaskCompletion": false,
+    "description": "Coverage enforcement is disabled for this project. Run 'pytest --cov' to check coverage manually."
+  }
+}
