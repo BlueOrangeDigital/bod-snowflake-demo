@@ -46,6 +46,7 @@ const DEMO_STEPS = [
     part: 'Part 2 — Data Ingestion',
     chapterTitle: 'Live Market Data',
     chapterSubtitle: 'Stocks & SEC Filings in Snowflake',
+    narration: NARRATIONS.dataIngestion,
     steps: [
       {
         label: 'Stock Prices — RAW DATA',
@@ -65,6 +66,7 @@ const DEMO_STEPS = [
     part: 'Part 3 — Traditional ML Pipeline',
     chapterTitle: 'Predicting Markets',
     chapterSubtitle: 'ML Regression at Scale',
+    narration: NARRATIONS.mlPipeline,
     steps: [
       {
         label: 'AAPL Stock Features — ML Pipeline',
@@ -90,6 +92,7 @@ const DEMO_STEPS = [
     part: 'Part 4 — Cortex AI Pipeline',
     chapterTitle: 'LLMs in SQL',
     chapterSubtitle: 'Cortex AI: Summarize, Analyze, Classify',
+    narration: NARRATIONS.cortexAI,
     steps: [
       {
         label: 'Filing Summaries AI Complete — Cortex AI',
@@ -127,6 +130,7 @@ const DEMO_STEPS = [
     part: 'Part 5 — Dashboards',
     chapterTitle: 'Intelligence at a Glance',
     chapterSubtitle: 'Live AI Dashboards in Snowsight',
+    narration: NARRATIONS.dashboards,
     steps: [
       {
         label: 'Stock Prediction Dashboard',
@@ -144,11 +148,42 @@ const DEMO_STEPS = [
   },
 ];
 
+// ---------------------------------------------------------------------------
+// Narration — sourced from VIDEO-SCRIPT.md scene scripts
+// ---------------------------------------------------------------------------
+const NARRATIONS = {
+  splash: `Welcome! Today I'm demonstrating Snowflake AI and Cortex with a real-world use case — analyzing financial markets using both traditional machine learning and large language models.`,
+
+  opening: `Here's what we built. We're ingesting live data from two free public sources: stock prices from Alpha Vantage, and SEC filings from the EDGAR API. All of it flows into Snowflake, where we run two AI pipelines — a traditional ML pipeline for stock price prediction, and a Cortex AI pipeline using large language models for text summarization and sentiment analysis. Let's see it in action.`,
+
+  setup: `Let me show you how the whole environment gets spun up. We use OpenTofu to provision all the Snowflake infrastructure from code — databases, schemas, warehouses, and scheduled tasks. Once the infrastructure is ready, we install the Python dependencies and run two ingestion scripts to pull live data from Alpha Vantage and SEC EDGAR into Snowflake. Finally, we execute the ML and Cortex AI pipeline SQL files through SnowSQL to build the feature tables, run the models, and generate the Cortex outputs.`,
+
+  dataIngestion: `Here's our stock price time series — 10 symbols, 100 days of history. And here are the SEC filings we're ingesting — 8-K forms with full text content for our large language model analysis. This is the raw material for everything that follows.`,
+
+  mlPipeline: `Our ML pipeline starts with feature engineering. We calculate moving averages, momentum indicators, and volatility. Using these features, we trained a linear regression model on six months of historical data. Here are the predictions for the next seven days, with confidence intervals. And here's our model performance across all symbols — achieving three to five percent mean absolute percentage error. Pretty solid for a simple linear model running entirely inside Snowflake.`,
+
+  cortexAI: `Now for the exciting part — Cortex AI. We're using Snowflake's built-in large language model functions to process unstructured text. AI Complete generates concise summaries of SEC filings directly in SQL. AI Sentiment analyzes the tone — positive, negative, or neutral. We classify each filing into categories like mergers and acquisitions, IPO, or restructuring. Here's a spotlight on M&A activity we automatically detected. And finally, we generate an executive briefing — a full natural language report summarizing all recent market activity, produced entirely by an LLM running inside Snowflake.`,
+
+  dashboards: `Everything comes together in Snowsight dashboards. Here's our ML prediction view — forecast versus actuals for every symbol. And here's the Cortex AI dashboard with sentiment trends and classification breakdown. We can see how market sentiment shifts over time, drill into classification distribution, and explore individual filings — all without leaving Snowflake.`,
+
+  closing: `In just a few minutes, we demonstrated live data ingestion from free public APIs, traditional ML for time series forecasting with regression, and Cortex AI for LLM-powered summarization, sentiment analysis, and classification — all running entirely within Snowflake, with zero external infrastructure. The entire setup is automated with OpenTofu, and the pipelines run on Snowflake Tasks for daily updates. All the code is on GitHub. Thanks for watching!`,
+};
+
+// speak() — uses macOS `say` command; resolves immediately on other platforms.
+function speak(text) {
+  if (process.platform !== 'darwin') return Promise.resolve();
+  return new Promise((resolve) => {
+    const proc = require('child_process').exec(`say -r 155 ${JSON.stringify(text)}`);
+    proc.on('close', resolve);
+  });
+}
+
 // Terminal commands for the setup & ingestion scene
 const TERMINAL_SCENE = {
   part: 'Part 1 — Infrastructure & Ingestion Setup',
   chapterTitle: 'Infrastructure as Code',
   chapterSubtitle: 'OpenTofu · Python · Snowflake',
+  narration: NARRATIONS.setup,
   groups: [
     {
       label: 'OpenTofu — provision Snowflake infrastructure',
@@ -623,8 +658,11 @@ async function runQuery(context, page, step) {
   });
   const page = await context.newPage();
 
-  // ── Splash title — very first frame of the recording ─────────────────────
-  await showTitleCard(page, 'AI Prediction in Snowflake!', 'Powered by Snowflake Cortex & Snowpark ML');
+  // ── Splash title + welcome narration — very first frame of the recording ─
+  await Promise.all([
+    showTitleCard(page, 'AI Prediction in Snowflake!', 'Powered by Snowflake Cortex & Snowpark ML'),
+    speak(NARRATIONS.splash),
+  ]);
 
   attachOAuthHandler(page);
   await page.goto(START_URL, { waitUntil: 'domcontentloaded' });
@@ -657,7 +695,7 @@ async function runQuery(context, page, step) {
     console.log(`  📍 Chapter: [${formatChapterTime(elapsed)}] ${title}`);
   };
 
-  // ── Opening title card ────────────────────────────────────────────────────
+  // ── Opening chapter card + architecture narration ────────────────────────
   recordChapter('Snowflake AI & Cortex', 'Financial Intelligence Demo');
   await showTitleCard(page, 'Snowflake AI & Cortex', 'Financial Intelligence Demo');
 
@@ -670,11 +708,20 @@ async function runQuery(context, page, step) {
   require('fs').writeFileSync('/tmp/snowsight-homepage.html', bodyHTML);
   console.log('  🔍 Debug snapshot saved: /tmp/snowsight-homepage.png + .html');
 
+  // Speak architecture overview; linger on Snowflake homepage until done
+  await speak(NARRATIONS.opening);
+  await pause(2000);
+
   // ── Setup & ingestion scene ───────────────────────────────────────────────
   console.log('\nStep 2/3: Running setup & ingestion scene…\n');
   recordChapter(TERMINAL_SCENE.chapterTitle, TERMINAL_SCENE.chapterSubtitle);
   await showTitleCard(page, TERMINAL_SCENE.chapterTitle, TERMINAL_SCENE.chapterSubtitle);
-  await runTerminalScene(page, TERMINAL_SCENE);
+  // Run terminal animation and narration concurrently; linger until both done
+  await Promise.all([
+    runTerminalScene(page, TERMINAL_SCENE),
+    speak(TERMINAL_SCENE.narration),
+  ]);
+  await pause(2000);
 
   // ── SQL demo scenes ───────────────────────────────────────────────────────
   console.log('\nStep 3/3: Running demo queries…\n');
@@ -694,11 +741,15 @@ async function runQuery(context, page, step) {
       await showBanner(page, part.part, step.label);
       await runQuery(context, page, step);
     }
-    // break; -- uncomment for just 1 table
+
+    // Last query result is visible — narrate while lingering; wait until done
+    await speak(part.narration);
+    await pause(2000);
   }
 
-  // ── Closing title card ────────────────────────────────────────────────────
+  // ── Closing title card + closing narration ────────────────────────────────
   recordChapter('AI-Powered Finance', 'Entirely in Snowflake');
+  const closingSpeech = speak(NARRATIONS.closing);
   await showTitleCard(page, 'AI-Powered Finance', 'Entirely in Snowflake');
 
   // ── Write chapters file ───────────────────────────────────────────────────
@@ -711,6 +762,9 @@ async function runQuery(context, page, step) {
   require('fs').writeFileSync(chaptersPath, chaptersText + '\n');
   console.log(`\n  📋 Chapters file written: ${chaptersPath}`);
   console.log(chaptersText);
+
+  // Linger on closing card until narration finishes
+  await closingSpeech;
 
   console.log('\n' + '='.repeat(60));
   console.log('  ✅ Demo complete!');
