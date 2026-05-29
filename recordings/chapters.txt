@@ -1,0 +1,7 @@
+00:00 Snowflake AI & Cortex: Financial Intelligence Demo
+00:05 Infrastructure as Code: OpenTofu · Python · Snowflake
+00:38 Live Market Data: Stocks & SEC Filings in Snowflake
+01:05 Predicting Markets: ML Regression at Scale
+01:40 LLMs in SQL: Cortex AI: Summarize, Analyze, Classify
+02:33 Intelligence at a Glance: Live AI Dashboards in Snowsight
+02:57 AI-Powered Finance: Entirely in Snowflake
