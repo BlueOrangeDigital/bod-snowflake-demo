@@ -44,6 +44,8 @@ const SCHEMA_DASH   = 'DASHBOARDS';
 const DEMO_STEPS = [
   {
     part: 'Part 2 — Data Ingestion',
+    chapterTitle: 'Live Market Data',
+    chapterSubtitle: 'Stocks & SEC Filings in Snowflake',
     steps: [
       {
         label: 'Stock Prices — RAW DATA',
@@ -61,6 +63,8 @@ const DEMO_STEPS = [
   },
   {
     part: 'Part 3 — Traditional ML Pipeline',
+    chapterTitle: 'Predicting Markets',
+    chapterSubtitle: 'ML Regression at Scale',
     steps: [
       {
         label: 'AAPL Stock Features — ML Pipeline',
@@ -84,6 +88,8 @@ const DEMO_STEPS = [
   },
   {
     part: 'Part 4 — Cortex AI Pipeline',
+    chapterTitle: 'LLMs in SQL',
+    chapterSubtitle: 'Cortex AI: Summarize, Analyze, Classify',
     steps: [
       {
         label: 'Filing Summaries AI Complete — Cortex AI',
@@ -119,6 +125,8 @@ const DEMO_STEPS = [
   },
   {
     part: 'Part 5 — Dashboards',
+    chapterTitle: 'Intelligence at a Glance',
+    chapterSubtitle: 'Live AI Dashboards in Snowsight',
     steps: [
       {
         label: 'Stock Prediction Dashboard',
@@ -139,6 +147,8 @@ const DEMO_STEPS = [
 // Terminal commands for the setup & ingestion scene
 const TERMINAL_SCENE = {
   part: 'Part 1 — Infrastructure & Ingestion Setup',
+  chapterTitle: 'Infrastructure as Code',
+  chapterSubtitle: 'OpenTofu · Python · Snowflake',
   groups: [
     {
       label: 'OpenTofu — provision Snowflake infrastructure',
@@ -218,6 +228,72 @@ function attachOAuthHandler(page) {
 // ---------------------------------------------------------------------------
 function pause(ms) {
   return new Promise((r) => setTimeout(r, ms));
+}
+
+function formatChapterTime(ms) {
+  const s = Math.floor(ms / 1000);
+  const m = Math.floor(s / 60);
+  return `${String(m).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+}
+
+async function showTitleCard(page, title, subtitle = '') {
+  const subtitleHtml = subtitle
+    ? `<div class="subtitle">${subtitle}</div>`
+    : '';
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  @keyframes fadeUp   { from { opacity:0; transform:translateY(24px); } to { opacity:1; transform:translateY(0); } }
+  @keyframes shimmer  { 0%,100%{opacity:1;} 50%{opacity:.65;} }
+  @keyframes scanline { 0%{background-position:0 0;} 100%{background-position:0 100%;} }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background: radial-gradient(ellipse at 40% 60%, #0d2b4a 0%, #06111e 55%, #020a12 100%);
+    height:100vh; overflow:hidden;
+    display:flex; flex-direction:column;
+    align-items:center; justify-content:center;
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  }
+  body::after {
+    content:''; position:fixed; inset:0; pointer-events:none;
+    background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,.07) 3px,rgba(0,0,0,.07) 4px);
+  }
+  .snowflake {
+    font-size:64px; color:#29B5E8; margin-bottom:28px;
+    animation: fadeUp .5s ease-out both, shimmer 3s 1s ease-in-out infinite;
+  }
+  .title {
+    font-size:46px; font-weight:700; color:#ffffff;
+    text-align:center; letter-spacing:-.02em; line-height:1.15;
+    max-width:860px; padding:0 48px;
+    animation: fadeUp .6s .15s ease-out both;
+    text-shadow: 0 0 60px rgba(41,181,232,.35);
+  }
+  .subtitle {
+    font-size:18px; font-weight:500; color:#29B5E8;
+    text-align:center; margin-top:22px;
+    letter-spacing:.12em; text-transform:uppercase;
+    animation: fadeUp .6s .35s ease-out both;
+  }
+  .rule {
+    width:72px; height:2px; margin-top:32px;
+    background:linear-gradient(90deg,transparent,#29B5E8,transparent);
+    animation: fadeUp .6s .5s ease-out both;
+  }
+</style>
+</head>
+<body>
+  <div class="snowflake">❄</div>
+  <div class="title">${title}</div>
+  ${subtitleHtml}
+  <div class="rule"></div>
+</body>
+</html>`;
+
+  await page.goto(`data:text/html,${encodeURIComponent(html)}`, { waitUntil: 'domcontentloaded' });
+  await pause(3200);
 }
 
 const BANNER_STYLE = `
@@ -567,26 +643,48 @@ async function runQuery(context, page, step) {
   }
   await pause(2000);
   console.log('  ✓ Logged in!');
-  await showBanner(page, 'Snowflake AI & Cortex Demo', '');
+
+  // Chapter tracking — timestamps relative to recording start
+  const chapters = [];
+  const recordingStart = Date.now();
+  const recordChapter = (title, subtitle) => {
+    const elapsed = Date.now() - recordingStart;
+    chapters.push({ time: elapsed, title, subtitle });
+    console.log(`  📍 Chapter: [${formatChapterTime(elapsed)}] ${title}`);
+  };
+
+  // ── Opening title card ────────────────────────────────────────────────────
+  recordChapter('Snowflake AI & Cortex', 'Financial Intelligence Demo');
+  await showTitleCard(page, 'Snowflake AI & Cortex', 'Financial Intelligence Demo');
 
   // DEBUG: dump screenshot + body HTML so we can identify real selectors
+  await page.goto(START_URL, { waitUntil: 'domcontentloaded' });
+  await pause(1500);
+  await showBanner(page, 'Snowflake AI & Cortex Demo', '');
   await page.screenshot({ path: '/tmp/snowsight-homepage.png', fullPage: false });
   const bodyHTML = await page.evaluate(() => document.body.innerHTML);
   require('fs').writeFileSync('/tmp/snowsight-homepage.html', bodyHTML);
   console.log('  🔍 Debug snapshot saved: /tmp/snowsight-homepage.png + .html');
 
+  // ── Setup & ingestion scene ───────────────────────────────────────────────
   console.log('\nStep 2/3: Running setup & ingestion scene…\n');
+  recordChapter(TERMINAL_SCENE.chapterTitle, TERMINAL_SCENE.chapterSubtitle);
+  await showTitleCard(page, TERMINAL_SCENE.chapterTitle, TERMINAL_SCENE.chapterSubtitle);
   await runTerminalScene(page, TERMINAL_SCENE);
 
-  // Navigate back to Snowflake after the terminal scene
-  await page.goto(START_URL, { waitUntil: 'domcontentloaded' });
-  await pause(2000);
-
+  // ── SQL demo scenes ───────────────────────────────────────────────────────
   console.log('\nStep 3/3: Running demo queries…\n');
   for (const part of DEMO_STEPS) {
     console.log(`\n${'─'.repeat(50)}`);
     console.log(`  ${part.part}`);
     console.log('─'.repeat(50));
+
+    recordChapter(part.chapterTitle, part.chapterSubtitle);
+    await showTitleCard(page, part.chapterTitle, part.chapterSubtitle);
+
+    // Navigate back to Snowflake after title card
+    await page.goto(START_URL, { waitUntil: 'domcontentloaded' });
+    await pause(1500);
 
     for (const step of part.steps) {
       await showBanner(page, part.part, step.label);
@@ -594,6 +692,21 @@ async function runQuery(context, page, step) {
     }
     // break; -- uncomment for just 1 table
   }
+
+  // ── Closing title card ────────────────────────────────────────────────────
+  recordChapter('AI-Powered Finance', 'Entirely in Snowflake');
+  await showTitleCard(page, 'AI-Powered Finance', 'Entirely in Snowflake');
+
+  // ── Write chapters file ───────────────────────────────────────────────────
+  const chaptersText = chapters
+    .map(({ time, title, subtitle }) =>
+      `${formatChapterTime(time)} ${title}${subtitle ? ': ' + subtitle : ''}`)
+    .join('\n');
+  const chaptersPath = `${__dirname}/../recordings/chapters.txt`;
+  require('fs').mkdirSync(`${__dirname}/../recordings`, { recursive: true });
+  require('fs').writeFileSync(chaptersPath, chaptersText + '\n');
+  console.log(`\n  📋 Chapters file written: ${chaptersPath}`);
+  console.log(chaptersText);
 
   console.log('\n' + '='.repeat(60));
   console.log('  ✅ Demo complete!');
