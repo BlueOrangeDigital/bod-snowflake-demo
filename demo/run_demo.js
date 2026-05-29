@@ -622,6 +622,10 @@ async function runQuery(context, page, step) {
     recordVideo: { dir: videoDir, size: { width: 1600, height: 800 } },
   });
   const page = await context.newPage();
+
+  // ── Splash title — very first frame of the recording ─────────────────────
+  await showTitleCard(page, 'AI Prediction in Snowflake!', 'Powered by Snowflake Cortex & Snowpark ML');
+
   attachOAuthHandler(page);
   await page.goto(START_URL, { waitUntil: 'domcontentloaded' });
 
@@ -641,7 +645,7 @@ async function runQuery(context, page, step) {
     }
     await pause(1000);
   }
-  await pause(2000);
+  await pause(1000);
   console.log('  ✓ Logged in!');
 
   // Chapter tracking — timestamps relative to recording start
@@ -659,7 +663,7 @@ async function runQuery(context, page, step) {
 
   // DEBUG: dump screenshot + body HTML so we can identify real selectors
   await page.goto(START_URL, { waitUntil: 'domcontentloaded' });
-  await pause(1500);
+  await pause(300);
   await showBanner(page, 'Snowflake AI & Cortex Demo', '');
   await page.screenshot({ path: '/tmp/snowsight-homepage.png', fullPage: false });
   const bodyHTML = await page.evaluate(() => document.body.innerHTML);
