@@ -61,6 +61,16 @@ const NARRATIONS = {
   closing: `In just a few minutes, we demonstrated live data ingestion from free public APIs, traditional ML for time series forecasting with regression, and Cortex AI for LLM-powered summarization, sentiment analysis, and classification — all running entirely within Snowflake, with zero external infrastructure. The entire setup is automated with OpenTofu, and the pipelines run on Snowflake Tasks for daily updates. All the code is on GitHub. Thanks for watching!`,
 };
 
+// Filler phrases spoken when Snowflake execution outlasts narration by 5+ seconds
+const WAIT_FILLERS = [
+  "Snowflake is processing the query across the full dataset...",
+  "This one's doing some heavy lifting behind the scenes...",
+  "You can see it running across all symbols in parallel...",
+  "Bigger queries sometimes take a moment — worth the wait.",
+  "Almost there...",
+];
+const WAIT_DONE_PHRASE = "Oh, there it is.";
+
 // speak() — uses macOS `say` command; resolves immediately on other platforms.
 function speak(text) {
   if (process.platform !== 'darwin') return Promise.resolve();
@@ -737,13 +747,34 @@ async function runQuery(context, page, step) {
     await page.goto(START_URL, { waitUntil: 'domcontentloaded' });
     await pause(1500);
 
+    // Start narration concurrent with query execution
+    let queriesDone = false;
+    const speechPromise = speak(part.narration);
+
+    // Filler watcher: kicks in if execution outlasts narration by 5+ seconds
+    const fillerPromise = (async () => {
+      await speechPromise;
+      if (queriesDone) return;
+      await pause(5000);
+      if (queriesDone) return;
+      let i = 0;
+      let usedFiller = false;
+      while (!queriesDone) {
+        await speak(WAIT_FILLERS[i++ % WAIT_FILLERS.length]);
+        usedFiller = true;
+        if (!queriesDone) await pause(1500);
+      }
+      if (usedFiller) await speak(WAIT_DONE_PHRASE);
+    })();
+
     for (const step of part.steps) {
       await showBanner(page, part.part, step.label);
       await runQuery(context, page, step);
     }
+    queriesDone = true;
 
-    // Last query result is visible — narrate while lingering; wait until done
-    await speak(part.narration);
+    // Wait for narration + any fillers to finish before moving on
+    await fillerPromise;
     await pause(2000);
   }
 
