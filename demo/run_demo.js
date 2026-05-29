@@ -40,6 +40,36 @@ const SCHEMA_CORTEX = process.env.DEMO_SCHEMA_CORTEX_AI           || 'CORTEX_AI'
 // Dashboards live in the same database as ML (no separate env var needed)
 const SCHEMA_DASH   = 'DASHBOARDS';
 
+// ---------------------------------------------------------------------------
+// Narration — sourced from VIDEO-SCRIPT.md scene scripts
+// ---------------------------------------------------------------------------
+const NARRATIONS = {
+  splash: `Welcome! Today I'm demonstrating Snowflake AI and Cortex with a real-world use case — analyzing financial markets using both traditional machine learning and large language models.`,
+
+  opening: `Here's what we built. We're ingesting live data from two free public sources: stock prices from Alpha Vantage, and SEC filings from the EDGAR API. All of it flows into Snowflake, where we run two AI pipelines — a traditional ML pipeline for stock price prediction, and a Cortex AI pipeline using large language models for text summarization and sentiment analysis. Let's see it in action.`,
+
+  setup: `Let me show you how the whole environment gets spun up. We use OpenTofu to provision all the Snowflake infrastructure from code — databases, schemas, warehouses, and scheduled tasks. Once the infrastructure is ready, we install the Python dependencies and run two ingestion scripts to pull live data from Alpha Vantage and SEC EDGAR into Snowflake. Finally, we execute the ML and Cortex AI pipeline SQL files through SnowSQL to build the feature tables, run the models, and generate the Cortex outputs.`,
+
+  dataIngestion: `Here's our stock price time series — 10 symbols, 100 days of history. And here are the SEC filings we're ingesting — 8-K forms with full text content for our large language model analysis. This is the raw material for everything that follows.`,
+
+  mlPipeline: `Our ML pipeline starts with feature engineering. We calculate moving averages, momentum indicators, and volatility. Using these features, we trained a linear regression model on six months of historical data. Here are the predictions for the next seven days, with confidence intervals. And here's our model performance across all symbols — achieving three to five percent mean absolute percentage error. Pretty solid for a simple linear model running entirely inside Snowflake.`,
+
+  cortexAI: `Now for the exciting part — Cortex AI. We're using Snowflake's built-in large language model functions to process unstructured text. AI Complete generates concise summaries of SEC filings directly in SQL. AI Sentiment analyzes the tone — positive, negative, or neutral. We classify each filing into categories like mergers and acquisitions, IPO, or restructuring. Here's a spotlight on M&A activity we automatically detected. And finally, we generate an executive briefing — a full natural language report summarizing all recent market activity, produced entirely by an LLM running inside Snowflake.`,
+
+  dashboards: `Everything comes together in Snowsight dashboards. Here's our ML prediction view — forecast versus actuals for every symbol. And here's the Cortex AI dashboard with sentiment trends and classification breakdown. We can see how market sentiment shifts over time, drill into classification distribution, and explore individual filings — all without leaving Snowflake.`,
+
+  closing: `In just a few minutes, we demonstrated live data ingestion from free public APIs, traditional ML for time series forecasting with regression, and Cortex AI for LLM-powered summarization, sentiment analysis, and classification — all running entirely within Snowflake, with zero external infrastructure. The entire setup is automated with OpenTofu, and the pipelines run on Snowflake Tasks for daily updates. All the code is on GitHub. Thanks for watching!`,
+};
+
+// speak() — uses macOS `say` command; resolves immediately on other platforms.
+function speak(text) {
+  if (process.platform !== 'darwin') return Promise.resolve();
+  return new Promise((resolve) => {
+    const proc = require('child_process').exec(`say -r 155 ${JSON.stringify(text)}`);
+    proc.on('close', resolve);
+  });
+}
+
 // Queries from the demo script
 const DEMO_STEPS = [
   {
@@ -147,36 +177,6 @@ const DEMO_STEPS = [
     ],
   },
 ];
-
-// ---------------------------------------------------------------------------
-// Narration — sourced from VIDEO-SCRIPT.md scene scripts
-// ---------------------------------------------------------------------------
-const NARRATIONS = {
-  splash: `Welcome! Today I'm demonstrating Snowflake AI and Cortex with a real-world use case — analyzing financial markets using both traditional machine learning and large language models.`,
-
-  opening: `Here's what we built. We're ingesting live data from two free public sources: stock prices from Alpha Vantage, and SEC filings from the EDGAR API. All of it flows into Snowflake, where we run two AI pipelines — a traditional ML pipeline for stock price prediction, and a Cortex AI pipeline using large language models for text summarization and sentiment analysis. Let's see it in action.`,
-
-  setup: `Let me show you how the whole environment gets spun up. We use OpenTofu to provision all the Snowflake infrastructure from code — databases, schemas, warehouses, and scheduled tasks. Once the infrastructure is ready, we install the Python dependencies and run two ingestion scripts to pull live data from Alpha Vantage and SEC EDGAR into Snowflake. Finally, we execute the ML and Cortex AI pipeline SQL files through SnowSQL to build the feature tables, run the models, and generate the Cortex outputs.`,
-
-  dataIngestion: `Here's our stock price time series — 10 symbols, 100 days of history. And here are the SEC filings we're ingesting — 8-K forms with full text content for our large language model analysis. This is the raw material for everything that follows.`,
-
-  mlPipeline: `Our ML pipeline starts with feature engineering. We calculate moving averages, momentum indicators, and volatility. Using these features, we trained a linear regression model on six months of historical data. Here are the predictions for the next seven days, with confidence intervals. And here's our model performance across all symbols — achieving three to five percent mean absolute percentage error. Pretty solid for a simple linear model running entirely inside Snowflake.`,
-
-  cortexAI: `Now for the exciting part — Cortex AI. We're using Snowflake's built-in large language model functions to process unstructured text. AI Complete generates concise summaries of SEC filings directly in SQL. AI Sentiment analyzes the tone — positive, negative, or neutral. We classify each filing into categories like mergers and acquisitions, IPO, or restructuring. Here's a spotlight on M&A activity we automatically detected. And finally, we generate an executive briefing — a full natural language report summarizing all recent market activity, produced entirely by an LLM running inside Snowflake.`,
-
-  dashboards: `Everything comes together in Snowsight dashboards. Here's our ML prediction view — forecast versus actuals for every symbol. And here's the Cortex AI dashboard with sentiment trends and classification breakdown. We can see how market sentiment shifts over time, drill into classification distribution, and explore individual filings — all without leaving Snowflake.`,
-
-  closing: `In just a few minutes, we demonstrated live data ingestion from free public APIs, traditional ML for time series forecasting with regression, and Cortex AI for LLM-powered summarization, sentiment analysis, and classification — all running entirely within Snowflake, with zero external infrastructure. The entire setup is automated with OpenTofu, and the pipelines run on Snowflake Tasks for daily updates. All the code is on GitHub. Thanks for watching!`,
-};
-
-// speak() — uses macOS `say` command; resolves immediately on other platforms.
-function speak(text) {
-  if (process.platform !== 'darwin') return Promise.resolve();
-  return new Promise((resolve) => {
-    const proc = require('child_process').exec(`say -r 155 ${JSON.stringify(text)}`);
-    proc.on('close', resolve);
-  });
-}
 
 // Terminal commands for the setup & ingestion scene
 const TERMINAL_SCENE = {
