@@ -848,7 +848,14 @@ async function runQuery(context, page, step) {
   await showTitleCard(page, 'AI-Powered Finance', 'Entirely in Snowflake');
 
   // ── Write chapters file ───────────────────────────────────────────────────
-  const chaptersText = chapters
+  // YouTube requires the first chapter to be at 00:00. If our earliest
+  // chapter starts later, prepend an "Intro" chapter so YouTube parses
+  // the list at all.
+  const chaptersForFile = chapters.slice();
+  if (chaptersForFile.length === 0 || chaptersForFile[0].time > 0) {
+    chaptersForFile.unshift({ time: 0, title: 'Intro', subtitle: '' });
+  }
+  const chaptersText = chaptersForFile
     .map(({ time, title, subtitle }) =>
       `${formatChapterTime(time)} ${title}${subtitle ? ': ' + subtitle : ''}`)
     .join('\n');
