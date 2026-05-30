@@ -34,14 +34,14 @@
 
 **Script:**
 
-> "Here's what we built:
+> "Here's what we'll build:
 > 
-> We're ingesting **live data** from three free public sources:
+> We'll ingest **live data** from three free public sources:
 > - Stock prices from **Alpha Vantage**
 > - Real estate trends from **Zillow**
 > - SEC filings from the **EDGAR API**
 > 
-> All data flows into Snowflake, where we run **two AI pipelines**:
+> All data will flow into Snowflake, where we will run **two AI pipelines**:
 > 1. A **traditional ML pipeline** for stock price prediction using regression
 > 2. A **Cortex AI pipeline** using large language models for text summarization and sentiment analysis
 >
