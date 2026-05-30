@@ -635,6 +635,7 @@ async function runTerminalScene(page, scene) {
   .prompt { color: #a6e3a1; }
   .command { color: #cdd6f4; }
   .output { color: #6c7086; white-space: pre; padding-left: 2px; }
+  .blank  { height: 1.4em; }
   .cursor {
     display: inline-block;
     width: 9px;
@@ -709,20 +710,28 @@ async function runTerminalScene(page, scene) {
         await pause(28 + Math.random() * 30);
       }
 
-      // Remove cursor, pause before "running"
+      // Remove cursor + insert a blank line (simulating Enter)
       await page.evaluate(() => {
+        const term = document.getElementById('term');
         const c = document.getElementById('__cursor__');
         if (c) c.remove();
+        const blank = document.createElement('div');
+        blank.className = 'blank';
+        term.appendChild(blank);
+        term.scrollTop = term.scrollHeight;
       });
       await pause(500);
 
-      // Show output
+      // Show output, then insert a trailing blank line before next command
       await page.evaluate((outputText) => {
         const term = document.getElementById('term');
         const out = document.createElement('div');
         out.className = 'output';
         out.textContent = outputText;
         term.appendChild(out);
+        const blank = document.createElement('div');
+        blank.className = 'blank';
+        term.appendChild(blank);
         term.scrollTop = term.scrollHeight;
       }, output);
 
