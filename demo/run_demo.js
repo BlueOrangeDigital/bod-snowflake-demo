@@ -678,9 +678,14 @@ async function runTerminalScene(page, scene) {
     await pause(600);
 
     for (const { cmd, output } of group.commands) {
-      // Type the command character by character
-      const lineEl = await page.evaluateHandle(() => {
+      // Type the command character by character.
+      // Clear any leftover __current_cmd__ / __cursor__ IDs from prior commands
+      // before assigning to the new spans — duplicate IDs break getElementById,
+      // which would otherwise route typing into the first old span.
+      await page.evaluateHandle(() => {
         const term = document.getElementById('term');
+        document.querySelectorAll('#__current_cmd__').forEach(el => el.removeAttribute('id'));
+        document.querySelectorAll('#__cursor__').forEach(el => el.remove());
         const line = document.createElement('div');
         const prompt = document.createElement('span');
         prompt.className = 'prompt';
