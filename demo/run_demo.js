@@ -71,13 +71,76 @@ const WAIT_FILLERS = [
 ];
 const WAIT_DONE_PHRASE = "Oh, there it is.";
 
-// speak() — uses macOS `say` command; resolves immediately on other platforms.
+// ── Narration capture state — populated by speak(), consumed by muxAudio() ──
+const _narrations = [];       // { startMs, audioPath }
+let   _recordingStart = null; // set once recording begins
+let   _speakCounter = 0;
+
+// speak() — speaks text via macOS `say` (audible) AND saves it to an AIFF
+// file with a timestamp so we can mux the narration into the video later.
+// Resolves when audible playback finishes (preserves timing).
 function speak(text) {
   if (process.platform !== 'darwin') return Promise.resolve();
-  return new Promise((resolve) => {
-    const proc = require('child_process').exec(`say -r 155 ${JSON.stringify(text)}`);
-    proc.on('close', resolve);
+  const id = ++_speakCounter;
+  const audioPath = `/tmp/demo_say_${process.pid}_${id}.aiff`;
+  const startMs = _recordingStart === null ? 0 : Date.now() - _recordingStart;
+  const arg = JSON.stringify(text);
+  const { exec } = require('child_process');
+  const live = new Promise((r) => exec(`say -r 155 ${arg}`).on('close', r));
+  const file = new Promise((r) => exec(`say -r 155 -o ${audioPath} ${arg}`).on('close', r));
+  return Promise.all([live, file]).then(() => {
+    _narrations.push({ startMs, audioPath });
   });
+}
+
+// muxAudio() — combine the captured narration AIFF files with the video.
+// Each clip is delayed to its startMs offset and mixed into a single track,
+// then muxed with the silent .webm into a new file with "-audio" suffix.
+async function muxAudio(videoPath) {
+  if (!videoPath || _narrations.length === 0) return null;
+  const { execFileSync } = require('child_process');
+  const fs = require('fs');
+  const path = require('path');
+
+  // Drop any clips whose audio file is missing or empty
+  const clips = _narrations.filter((n) => {
+    try { return fs.statSync(n.audioPath).size > 0; } catch { return false; }
+  });
+  if (clips.length === 0) return null;
+
+  const dir = path.dirname(videoPath);
+  const base = path.basename(videoPath, path.extname(videoPath));
+  const outPath = path.join(dir, `${base}-audio.webm`);
+
+  // Build ffmpeg args: input video + each AIFF; filter_complex applies
+  // adelay per clip then amix into a single track.
+  const args = ['-y', '-i', videoPath];
+  for (const c of clips) args.push('-i', c.audioPath);
+
+  const filterParts = clips.map((c, i) => `[${i + 1}:a]adelay=${c.startMs}|${c.startMs}[a${i}]`);
+  const mixInputs = clips.map((_, i) => `[a${i}]`).join('');
+  const filter = `${filterParts.join(';')};${mixInputs}amix=inputs=${clips.length}:duration=longest:normalize=0[aout]`;
+
+  args.push(
+    '-filter_complex', filter,
+    '-map', '0:v',
+    '-map', '[aout]',
+    '-c:v', 'copy',
+    '-c:a', 'libopus',
+    '-b:a', '128k',
+    outPath,
+  );
+
+  console.log(`\n  🔊 Muxing ${clips.length} narration clips into video…`);
+  try {
+    execFileSync('ffmpeg', args, { stdio: ['ignore', 'ignore', 'pipe'] });
+    // Cleanup AIFF temp files
+    for (const c of clips) { try { fs.unlinkSync(c.audioPath); } catch {} }
+    return outPath;
+  } catch (err) {
+    console.warn(`  ⚠️  ffmpeg mux failed: ${err.message}`);
+    return null;
+  }
 }
 
 // Queries from the demo script
@@ -667,6 +730,8 @@ async function runQuery(context, page, step) {
     recordVideo: { dir: videoDir, size: { width: 1600, height: 800 } },
   });
   const page = await context.newPage();
+  // Mark recording start so speak() can compute audio offsets accurately
+  _recordingStart = Date.now();
 
   // ── Splash title + welcome narration — very first frame of the recording ─
   await Promise.all([
@@ -698,9 +763,8 @@ async function runQuery(context, page, step) {
 
   // Chapter tracking — timestamps relative to recording start
   const chapters = [];
-  const recordingStart = Date.now();
   const recordChapter = (title, subtitle) => {
-    const elapsed = Date.now() - recordingStart;
+    const elapsed = Date.now() - _recordingStart;
     chapters.push({ time: elapsed, title, subtitle });
     console.log(`  📍 Chapter: [${formatChapterTime(elapsed)}] ${title}`);
   };
@@ -811,6 +875,8 @@ async function runQuery(context, page, step) {
   const videoPath = await page.video()?.path();
   await browser.close();
   if (videoPath) {
-    console.log(`\n  🎬 Recording saved: ${videoPath}`);
+    console.log(`\n  🎬 Silent recording saved: ${videoPath}`);
+    const muxed = await muxAudio(videoPath);
+    if (muxed) console.log(`  🎬 Final recording (with audio): ${muxed}`);
   }
 })();
