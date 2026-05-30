@@ -801,7 +801,13 @@ async function runQuery(context, page, step) {
   console.log('  ✅ Demo complete!');
   console.log('='.repeat(60));
 
-  await waitForEnter('\n  → Press ENTER to close the browser: ');
+  // Close automatically. Set DEMO_HOLD_OPEN=1 to inspect the browser before close.
+  if (process.env.DEMO_HOLD_OPEN === '1') {
+    await waitForEnter('\n  → Press ENTER to close the browser: ');
+  } else {
+    console.log('\n  ⏳ Closing browser in 2s (set DEMO_HOLD_OPEN=1 to wait for ENTER)…');
+    await pause(2000);
+  }
   const videoPath = await page.video()?.path();
   await browser.close();
   if (videoPath) {
