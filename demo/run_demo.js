@@ -784,7 +784,7 @@ async function runQuery(context, page, step) {
 
   // Speak architecture overview; linger on Snowflake homepage until done
   await speak(NARRATIONS.opening);
-  await pause(2000);
+  await pause(1000);
 
   // ── Setup & ingestion scene ───────────────────────────────────────────────
   console.log('\nStep 2/3: Running setup & ingestion scene…\n');
@@ -795,7 +795,7 @@ async function runQuery(context, page, step) {
     runTerminalScene(page, TERMINAL_SCENE),
     speak(TERMINAL_SCENE.narration),
   ]);
-  await pause(2000);
+  await pause(1000);
 
   // ── SQL demo scenes ───────────────────────────────────────────────────────
   console.log('\nStep 3/3: Running demo queries…\n');
@@ -839,7 +839,7 @@ async function runQuery(context, page, step) {
 
     // Wait for narration + any fillers to finish before moving on
     await fillerPromise;
-    await pause(2000);
+    await pause(1000);
   }
 
   // ── Closing title card + closing narration ────────────────────────────────
