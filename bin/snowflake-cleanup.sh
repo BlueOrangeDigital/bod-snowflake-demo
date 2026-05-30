@@ -38,15 +38,13 @@ done
 
 if [[ "$CONFIRMED" -ne 1 ]]; then
     cat >&2 <<EOF
-⚠️  This will DROP all pipeline-generated objects in AI_CORTEX_DEMO and
-   TRUNCATE all raw data tables (STOCK_PRICES, SEC_FILINGS, REAL_ESTATE).
+⚠️  This will DROP all pipeline-generated objects in AI_CORTEX_DEMO,
+   TRUNCATE all raw data tables (STOCK_PRICES, SEC_FILINGS, REAL_ESTATE),
+   and DELETE demo-created SQL files from your Snowsight workspace.
    Terraform-managed schemas, warehouses, and table definitions are kept.
 
    Re-run with --yes to confirm:
      bin/snowflake-cleanup.sh --yes
-
-   Reminder: Snowsight worksheets created by demo/run_demo.js live in user
-   workspace state and must be deleted manually from the Snowsight UI.
 EOF
     exit 1
 fi
@@ -66,4 +64,21 @@ fi
 
 echo "🧹 Running Snowflake cleanup via snowsql (connection: $CONNECTION)…"
 snowsql -c "$CONNECTION" -f "$SQL_FILE"
-echo "✅ Cleanup complete."
+echo "✅ SQL cleanup complete."
+
+# ── Workspace cleanup (Snowsight UI files) ──────────────────────────────────
+WORKSPACE_SCRIPT="${SCRIPT_DIR}/../demo/cleanup_workspaces.js"
+if [[ -f "$WORKSPACE_SCRIPT" ]] && command -v node >/dev/null 2>&1; then
+    echo ""
+    echo "🧹 Running Snowsight workspace cleanup (Playwright)…"
+    if node "$WORKSPACE_SCRIPT" --yes; then
+        echo "✅ Workspace cleanup complete."
+    else
+        echo "⚠️  Workspace cleanup script failed. You may need to delete files manually" >&2
+        echo "    from the Snowsight UI under Projects → Workspaces." >&2
+    fi
+else
+    echo ""
+    echo "ℹ️  Skipping workspace cleanup (node or $WORKSPACE_SCRIPT not found)."
+    echo "   Delete demo files manually from Snowsight → Projects → Workspaces."
+fi
