@@ -33,7 +33,8 @@ if (!process.argv.includes('--yes') && !process.argv.includes('-y')) {
   process.exit(1);
 }
 
-const START_URL = `https://app.snowflake.com/${SNOWFLAKE_ORG}/${SNOWFLAKE_ACCOUNT}/`;
+const START_URL      = `https://app.snowflake.com/${SNOWFLAKE_ORG}/${SNOWFLAKE_ACCOUNT}/`;
+const WORKSPACES_URL = `https://app.snowflake.com/${SNOWFLAKE_ORG}/${SNOWFLAKE_ACCOUNT}/#/workspaces`;
 
 // File labels created by demo/run_demo.js (keep in sync with DEMO_STEPS)
 const DEMO_FILES = [
@@ -193,9 +194,46 @@ async function deleteWorkspaceFile(page, label) {
   await pause(1500);
   console.log('  ✓ Logged in');
 
-  // Navigate to Projects → Workspaces
-  await page.getByRole('link', { name: 'Projects' }).click();
-  await pause(1500);
+  // Dismiss any blocking modals/notifications that may appear post-login
+  console.log('  🚫 Dismissing modals and notifications…');
+  const dismissTargets = [
+    page.getByRole('button', { name: /^remind me later$/i }),
+    page.getByRole('button', { name: /^dismiss$/i }),
+    page.getByRole('button', { name: /^not now$/i }),
+    page.getByRole('button', { name: /^close$/i }),
+    page.getByRole('button', { name: /^ok$/i }),
+    page.locator('button[aria-label*="close" i]'),
+    page.locator('button[aria-label*="dismiss" i]'),
+  ];
+  for (const btn of dismissTargets) {
+    while (await btn.first().isVisible({ timeout: 800 }).catch(() => false)) {
+      try {
+        await btn.first().click({ timeout: 1500 });
+        await pause(400);
+      } catch { break; }
+    }
+  }
+
+  // Navigate directly to the Workspaces page (most reliable)
+  console.log(`  📂 Navigating to Workspaces: ${WORKSPACES_URL}`);
+  await page.goto(WORKSPACES_URL, { waitUntil: 'domcontentloaded' });
+  await pause(3000);
+
+  // Dismiss again in case the navigation triggered new notifications
+  for (const btn of dismissTargets) {
+    if (await btn.first().isVisible({ timeout: 600 }).catch(() => false)) {
+      try { await btn.first().click({ timeout: 1500 }); await pause(300); } catch {}
+    }
+  }
+
+  // Wait for the workspace iframe to render
+  try {
+    await page.waitForSelector('iframe[title="Workspaces"]', { timeout: 15_000 });
+    await pause(1500);
+    console.log('  ✓ Workspaces iframe loaded');
+  } catch {
+    console.warn('  ⚠️  Workspaces iframe did not appear — continuing anyway');
+  }
 
   // Dump a debug snapshot so we can iterate on selectors if needed
   await page.screenshot({ path: '/tmp/snowsight-workspaces-cleanup.png', fullPage: false });
