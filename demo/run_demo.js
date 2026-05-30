@@ -724,32 +724,22 @@ async function runQuery(context, page, step) {
   const videoDir = `${__dirname}/../recordings`;
   require('fs').mkdirSync(videoDir, { recursive: true });
 
-  // const context = await browser.newContext({ viewport: null });
-  const context = await browser.newContext({
+  // ── Phase 1: Login in a non-recording context ────────────────────────────
+  // Playwright can't pause recording mid-session, so we do login in a
+  // throwaway context, save its session state, then start the real
+  // recording with that state already loaded — login never hits the video.
+  console.log('  🔐 Logging in (not recorded)…');
+  const loginContext = await browser.newContext({
     viewport: { width: 1600, height: 800 },
-    recordVideo: { dir: videoDir, size: { width: 1600, height: 800 } },
   });
-  const page = await context.newPage();
-  // Mark recording start so speak() can compute audio offsets accurately
-  _recordingStart = Date.now();
+  const loginPage = await loginContext.newPage();
+  attachOAuthHandler(loginPage);
+  await loginPage.goto(START_URL, { waitUntil: 'domcontentloaded' });
 
-  // ── Splash title + welcome narration — very first frame of the recording ─
-  await Promise.all([
-    showTitleCard(page, 'AI Prediction in Snowflake!', 'Powered by Snowflake Cortex & Snowpark ML'),
-    speak(NARRATIONS.splash),
-  ]);
-
-  attachOAuthHandler(page);
-  await page.goto(START_URL, { waitUntil: 'domcontentloaded' });
-
-  // Poll until the URL contains the org/account path (login complete)
-  console.log('  ⏳ Waiting for login…');
   const loginPath = `app.snowflake.com/${SNOWFLAKE_ORG}/${SNOWFLAKE_ACCOUNT}`;
   const loginDeadline = Date.now() + 300_000;
   while (true) {
-    const current = page.url();
-    // Require the SPA hash (#/) — the bare start URL also contains loginPath
-    // but the hash only appears after a successful login redirect
+    const current = loginPage.url();
     if (current.includes(loginPath.toLowerCase()) && current.includes('#/')) break;
     if (Date.now() > loginDeadline) {
       console.error('  ✗ Timed out waiting for login');
@@ -760,6 +750,27 @@ async function runQuery(context, page, step) {
   }
   await pause(1000);
   console.log('  ✓ Logged in!');
+
+  // Save session state and close the login context
+  const storageState = await loginContext.storageState();
+  await loginContext.close();
+
+  // ── Phase 2: Start recording with saved session — already logged in ──────
+  console.log('  🎬 Starting recording (logged-in session reused)…');
+  const context = await browser.newContext({
+    viewport: { width: 1600, height: 800 },
+    recordVideo: { dir: videoDir, size: { width: 1600, height: 800 } },
+    storageState,
+  });
+  const page = await context.newPage();
+  // Mark recording start so speak() can compute audio offsets accurately
+  _recordingStart = Date.now();
+
+  // ── Splash title + welcome narration — very first frame of the recording ─
+  await Promise.all([
+    showTitleCard(page, 'AI Prediction in Snowflake!', 'Powered by Snowflake Cortex & Snowpark ML'),
+    speak(NARRATIONS.splash),
+  ]);
 
   // Chapter tracking — timestamps relative to recording start
   const chapters = [];
