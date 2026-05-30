@@ -526,6 +526,82 @@ async function showTitleCard(page, title, subtitle = '') {
   await pause(3200);
 }
 
+// Render the project README scrolled to the "Architecture" section.
+// Uses marked from a CDN for markdown rendering inside a data: URL.
+async function showReadmeArchitecture(page) {
+  const path = require('path');
+  const fs = require('fs');
+  const readmePath = path.join(__dirname, '..', 'README.md');
+  const readmeContent = fs.readFileSync(readmePath, 'utf-8');
+
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: #ffffff;
+    color: #1f2328;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, sans-serif;
+    line-height: 1.55;
+  }
+  #content {
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 40px 56px 80px;
+  }
+  h1, h2, h3 { border-bottom: 1px solid #d1d9e0; padding-bottom: 8px; margin-top: 32px; }
+  h1 { font-size: 32px; }
+  h2 { font-size: 26px; color: #1A6FA8; }
+  h3 { font-size: 20px; border-bottom: none; }
+  p, li { font-size: 16px; }
+  pre {
+    background: #f6f8fa; padding: 18px 20px; border-radius: 8px;
+    overflow-x: auto; font-family: 'SF Mono','Cascadia Code',Menlo,monospace;
+    font-size: 14px; line-height: 1.5;
+  }
+  code {
+    background: #f0f3f6; padding: 2px 6px; border-radius: 4px;
+    font-family: 'SF Mono','Cascadia Code',Menlo,monospace; font-size: 0.92em;
+  }
+  pre code { background: none; padding: 0; }
+  table { border-collapse: collapse; margin: 16px 0; }
+  th, td { border: 1px solid #d1d9e0; padding: 8px 14px; text-align: left; }
+  th { background: #f6f8fa; }
+  a { color: #0969da; text-decoration: none; }
+  blockquote { border-left: 4px solid #d1d9e0; padding-left: 16px; color: #59636e; }
+</style>
+</head>
+<body>
+  <div id="content">Loading…</div>
+  <script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
+</body>
+</html>`;
+
+  await page.goto(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`, { waitUntil: 'domcontentloaded' });
+  try {
+    await page.waitForFunction(() => typeof window.marked !== 'undefined', { timeout: 8000 });
+  } catch {
+    console.warn('  ⚠️  marked CDN failed to load — falling back to plaintext README');
+  }
+  await page.evaluate((md) => {
+    const el = document.getElementById('content');
+    if (typeof window.marked !== 'undefined') {
+      el.innerHTML = window.marked.parse(md);
+    } else {
+      const pre = document.createElement('pre');
+      pre.textContent = md;
+      el.replaceWith(pre);
+    }
+    const heading = [...document.querySelectorAll('h1,h2,h3')]
+      .find((h) => /^architecture$/i.test(h.textContent.trim()));
+    if (heading) heading.scrollIntoView({ block: 'start' });
+  }, readmeContent);
+  await pause(300);
+}
+
 const BANNER_STYLE = `
   position: fixed;
   top: 0; left: 0; right: 0;
@@ -920,16 +996,9 @@ async function runQuery(context, page, step) {
   recordChapter('Snowflake AI & Cortex', 'Financial Intelligence Demo');
   await showTitleCard(page, 'Snowflake AI & Cortex', 'Financial Intelligence Demo');
 
-  // DEBUG: dump screenshot + body HTML so we can identify real selectors
-  await page.goto(START_URL, { waitUntil: 'domcontentloaded' });
-  await pause(300);
-  await showBanner(page, 'Snowflake AI & Cortex Demo', '');
-  await page.screenshot({ path: '/tmp/snowsight-homepage.png', fullPage: false });
-  const bodyHTML = await page.evaluate(() => document.body.innerHTML);
-  require('fs').writeFileSync('/tmp/snowsight-homepage.html', bodyHTML);
-  console.log('  🔍 Debug snapshot saved: /tmp/snowsight-homepage.png + .html');
-
-  // Speak architecture overview; linger on Snowflake homepage until done
+  // Show README scrolled to the Architecture section while narrating the
+  // architecture overview — viewers see the actual diagram + description.
+  await showReadmeArchitecture(page);
   await speak(NARRATIONS.opening);
   await pause(1000);
 
