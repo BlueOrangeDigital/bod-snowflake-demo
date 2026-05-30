@@ -12,7 +12,7 @@
 set -euo pipefail
 
 CONFIRMED=0
-CONNECTION="${SNOWSQL_CONNECTION:-myaccount}"
+CONNECTION="${SNOWSQL_CONNECTION:-demo}"
 
 while [[ "$#" -gt 0 ]]; do
     case "$1" in
