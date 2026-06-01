@@ -33,14 +33,21 @@ print(f"Using User-Agent: {HEADERS['User-Agent']}")
 print("For production, update HEADERS in this script with your contact info.\n")
 
 def get_snowflake_connection():
-    return snowflake.connector.connect(
+    conn = snowflake.connector.connect(
         account=f"{os.getenv('SNOWFLAKE_ORGANIZATION_NAME')}-{os.getenv('SNOWFLAKE_ACCOUNT_NAME')}",
         user=os.getenv("SNOWFLAKE_USER"),
         password=os.getenv("SNOWFLAKE_PASSWORD"),
+        role=os.getenv("SNOWFLAKE_ROLE", "ACCOUNTADMIN"),
         warehouse="INGESTION_WH",
         database="AI_CORTEX_DEMO",
-        schema="RAW_DATA"
+        schema="RAW_DATA",
     )
+    cur = conn.cursor()
+    cur.execute("USE WAREHOUSE INGESTION_WH")
+    cur.execute("USE DATABASE AI_CORTEX_DEMO")
+    cur.execute("USE SCHEMA RAW_DATA")
+    cur.close()
+    return conn
 
 def fetch_recent_filings(form_type: str = "8-K", count: int = 50):
     """

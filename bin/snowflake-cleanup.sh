@@ -62,8 +62,8 @@ if [[ ! -f "$SQL_FILE" ]]; then
     exit 1
 fi
 
-echo "🧹 Running Snowflake cleanup via snowsql (connection: $CONNECTION)…"
-snowsql -c "$CONNECTION" -f "$SQL_FILE"
+echo "🧹 Running Snowflake cleanup via snowsql (connection: $CONNECTION, role: ACCOUNTADMIN)…"
+snowsql -c "$CONNECTION" -r ACCOUNTADMIN -f "$SQL_FILE"
 echo "✅ SQL cleanup complete."
 
 # ── Workspace cleanup (Snowsight UI files) ──────────────────────────────────
