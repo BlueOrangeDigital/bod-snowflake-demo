@@ -27,14 +27,23 @@ if API_KEY == "demo":
 
 # Snowflake connection
 def get_snowflake_connection():
-    return snowflake.connector.connect(
+    conn = snowflake.connector.connect(
         account=f"{os.getenv('SNOWFLAKE_ORGANIZATION_NAME')}-{os.getenv('SNOWFLAKE_ACCOUNT_NAME')}",
         user=os.getenv("SNOWFLAKE_USER"),
         password=os.getenv("SNOWFLAKE_PASSWORD"),
+        role=os.getenv("SNOWFLAKE_ROLE", "ACCOUNTADMIN"),
         warehouse="INGESTION_WH",
         database="AI_CORTEX_DEMO",
-        schema="RAW_DATA"
+        schema="RAW_DATA",
     )
+    # Some accounts ignore the database/schema connect params when the default
+    # role can't access them — explicitly USE to be sure the session is set up.
+    cur = conn.cursor()
+    cur.execute("USE WAREHOUSE INGESTION_WH")
+    cur.execute("USE DATABASE AI_CORTEX_DEMO")
+    cur.execute("USE SCHEMA RAW_DATA")
+    cur.close()
+    return conn
 
 def fetch_daily_stock_data(symbol: str, outputsize: str = "compact") -> pd.DataFrame:
     """

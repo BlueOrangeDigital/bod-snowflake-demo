@@ -8,3 +8,7 @@
 # Dolt database files (added by bd init)
 .dolt/
 *.db
+
+# Demo recordings — stored as GitHub Release assets, not committed
+recordings/*.webm
+recordings/*.mp4
