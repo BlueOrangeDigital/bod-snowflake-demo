@@ -86,8 +86,8 @@ function speak(text) {
   const startMs = _recordingStart === null ? 0 : Date.now() - _recordingStart;
   const arg = JSON.stringify(text);
   const { exec } = require('child_process');
-  const live = new Promise((r) => exec(`say -r 350 ${arg}`).on('close', r));
-  const file = new Promise((r) => exec(`say -r 350 -o ${audioPath} ${arg}`).on('close', r));
+  const live = new Promise((r) => exec(`say -r 200 ${arg}`).on('close', r));
+  const file = new Promise((r) => exec(`say -r 200 -o ${audioPath} ${arg}`).on('close', r));
   return Promise.all([live, file]).then(() => {
     _narrations.push({ startMs, audioPath });
   });
