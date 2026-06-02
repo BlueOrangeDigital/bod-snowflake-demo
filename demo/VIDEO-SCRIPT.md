@@ -186,7 +186,7 @@ SELECT
     CONFIDENCE_INTERVAL_HIGH
 FROM STOCK_PREDICTIONS
 WHERE SYMBOL = 'AAPL'
-ORDER BY PREDICTION_DATE;
+ORDER BY PREDICTION_DATE desc;
 ```
 
 > "And here's our model performance across all symbols. We're achieving around **3-5% mean absolute percentage error**—pretty good for a simple linear model."
